@@ -6,7 +6,7 @@ goal_size: 0.5 # side length of square surrounding goal region
 # rrt* algorithm parameters
 epsilon: 0.8 # sample from goal region with probability 1-epsilon
 max_iter: 10000 # cap size of graph (idk if this is necessary?)
-k: 20 # number of nearest neighbors to check for rewiring
+neighbor_radius: 0.5 # number of nearest neighbors to check for rewiring
 d: 0.1 # [meters] distance to travel during steering.
 
 # topics

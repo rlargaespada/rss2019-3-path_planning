@@ -6,6 +6,7 @@
     Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (acuel@mit.edu)
 """
 import rospy
+from sklearn.neighbors import KDTree
 
 class RRTstar:
     """
@@ -28,8 +29,12 @@ class RRTstar:
         # initialize algorithm parameters
         self.max_iter = rospy.get_param("~max_iter")
         self.epsilon = rospy.get_param("~epsilon")
-        self.k = rospy.get_param("~k")
+        self.neighbor_radius = rospy.get_param("~neighbor_radius")
         self.d = rospy.get_param("~d")
+
+        # initilize graph structure
+        self.nodes = []
+        self.tree = KDTree([n.pose for n in self.nodes], leaf_size=20, metric='euclidean')
 
         # TODO(alex): initialize publishers and subscribers
 
@@ -45,7 +50,7 @@ class RRTstar:
         # TODO(alex)
         pass
 
-    def check_collision(self, path):
+    def in_collision(self, path):
         """
         """
         # TODO(alex)
@@ -53,9 +58,12 @@ class RRTstar:
 
     def find_nearest(self, node):
         """
+        Input: node: (Node) node around which to query for neighbors
+        Output: idx, dists: indices of neighbors within neighbor_radius and their distances
         """
         # TODO(abbie)
-        pass
+        idx, dists = self.tree.query_radius([node.pose], r=self.neighbor_radius, return_distance=True, sort_results=True)
+        return idx, dists
 
     def rewire(self, new_node, knn):
         """
