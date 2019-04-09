@@ -7,8 +7,9 @@
 """
 import rospy
 
-class RRT:
+class RRTstar:
     """
+    RRT* using Dubin Steering
     """
     def __init__(self):
         """
@@ -31,6 +32,42 @@ class RRT:
         self.d = rospy.get_param("~d")
 
         # TODO(alex): initialize publishers and subscribers
+
+    def steer(self, start_node, next_node):
+        """
+        """
+        # TODO(alex)
+        pass
+
+    def get_next(self):
+        """
+        """
+        # TODO(alex)
+        pass
+
+    def check_collision(self, path):
+        """
+        """
+        # TODO(alex)
+        pass
+
+    def find_nearest(self, node):
+        """
+        """
+        # TODO(abbie)
+        pass
+
+    def rewire(self, new_node, knn):
+        """
+        """
+        # TODO(abbie)
+        pass
+
+    def plan_path(self):
+        """
+        """
+        # TODO(alex)
+        pass
 
 class Node:
     """
