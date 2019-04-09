@@ -40,5 +40,12 @@ class Node:
         self.x = x
         self.y = y
         self.theta = theta
+        self.path = [] # series of poses from parent to self
         self.parent = parent
         self.cost = 0.0 # distance to parent along dubin path
+
+    def add_to_path(self, pose):
+        """
+        Adds a pose to path generated from Dubin steering
+        """
+        self.path.append(pose)
