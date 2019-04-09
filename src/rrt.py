@@ -73,13 +73,11 @@ class Node:
     """
     RRT graph node
     """
-    def __init__(self, x, y, theta, parent = None):
-        self.x = x
-        self.y = y
-        self.theta = theta
+    def __init__(self, pose, parent = None):
+        self.pose = pose # [x, y, theta]
         self.path = [] # series of poses from parent to self
         self.parent = parent
-        self.cost = 0.0 # distance to parent along dubin path
+        self.cost = 0.0 # distance to source along edges
 
     def add_to_path(self, pose):
         """
