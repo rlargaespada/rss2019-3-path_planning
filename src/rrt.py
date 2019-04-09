@@ -44,8 +44,6 @@ class RRTstar:
         self.d = rospy.get_param("~d")
         self.turning_radius = rospy.get_param("~turning_radius")
         self.path_step = rospy.get_param("~path_step")
-        self.sample_from_all = .8
-
         # initilize graph structure
         self.nodes = []
         self.start_node = Node(self.start)
@@ -89,11 +87,25 @@ class RRTstar:
 
             if not is_collision(new_path):
                 #Cost = distance.  Possible since path is discritized by length
-                cost = len(new_path)*self.path_step()
+                cost = len(new_path)*self.path_step
                 #Add node to nodes
                 self.nodes.append(Node(new_pose, closest, new_path, cost))
                 #make current node the node just added
                 self.current = self.nodes[-1]
+
+        #Define path from the last Node considered to goal
+        path_to_goal = self.create_path(self.current, self.goal)
+        #Define path of the last Node to goal
+        cost = len(path_to_goal)*self.path_step
+        #Create node at goal to and add to nodes list
+        self.end_node = Node(self.goal, self.current, path_to_goal, cost)
+        self.nodes.append(self.end_node)
+        #Create sequence of nodes from start to goal
+        self.node_path = self.plan_node_path(self.end_node)
+        #Create path of poses from the node_path
+        self.pose_path = self.plan_pose_path()
+        return self.pose_path
+
                 
 
     def steer(self, start_node, next_pose):
@@ -175,11 +187,27 @@ class RRTstar:
         # TODO(abbie)
         pass
 
-    def plan_path(self):
+    def plan_node_path(self, node):
         """
+        Input: Node object
+        Output: list of Node objects from parent to child
         """
-        # TODO(alex)
-        pass
+        if node == None:
+            return []
+        return self.plan_path[node.parent] + [node]
+
+    def plan_pose_path(self):
+        '''
+        Input: None
+        Output: List of poses from first Node in self.node_path to 
+                lst node in self.node_path
+        '''
+        path = []
+        for node in self.node_path:
+            path += node.path
+        return path
+
+        
 
 class Node:
     """
