@@ -5,14 +5,32 @@
 
     Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (acuel@mit.edu)
 """
+import rospy
 
 class RRT:
     """
     """
-    def __init__(self, start, goal):
-        self.start = start
-        self.goal = goal
+    def __init__(self):
+        """
+        start = [x, y, theta]
+        goal = [x, y]
+        """
+        # initialize start and goal parameters
+        self.start = rospy.get_param("~start_pose")
+        self.goal = rospy.get_param("~goal_pose")
+        self.goal_size = rospy.get_param("~goal_size")
+        self.goal_region = {"xmin": goal[0] - self.goal_size/2,
+                            "xmax": goal[0] + self.goal_size/2,
+                            "ymin": goal[1] - self.goal_size/2,
+                            "ymax": goal[1] + self.goal_size/2}
 
+        # initialize algorithm parameters
+        self.max_iter = rospy.get_param("~max_iter")
+        self.epsilon = rospy.get_param("~epsilon")
+        self.k = rospy.get_param("~k")
+        self.d = rospy.get_param("~d")
+
+        # TODO(alex): initialize publishers and subscribers
 
 class Node:
     """
