@@ -79,11 +79,11 @@ class RRTstar:
             if self.in_goal(self.current):
                 break
             #Get a random pose sample
-            sample = self.get_next()
+            next_pose = self.get_next()
             #Get the closest node to our sample
-            closest = self.find_nearest_node(sample)
+            closest = self.find_nearest_node(next_pose)
             #Get actual pose for node
-            new_pose = self.steer(closest, sample)
+            new_pose = self.steer(closest, next_pose)
             #Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
 
@@ -96,35 +96,34 @@ class RRTstar:
                 self.current = self.nodes[-1]
                 
 
-
-
     def steer(self, start_node, next_pose):
         """
         Input: Parent node and proposed next pose [x, y]
         Output: the actual next pose [x, y, theta] (theta in direction of movement)
         """
-        x = start_node.pose[0] + next_pose[0]*self.d
-        y = start_node.pose[1] + next_pose[0]*self.d
+        dist_ratio = self.d/get_dist(start_node.pose, next_pose)
+        x = start_node.pose[0] + (next_pose[0] - start_node.pose[0])*dist_ratio
+        y = start_node.pose[1] + (next_pose[1] - start_node.pose[1])*dist_ratio
         theta = np.arctan2(y, x)
-        return [new_x, new_y, new_theta]
+        return [x, y, theta]
 
     def create_path(self, start_node, next_pose):
         '''
         Input: Parent node and proposed next pose [x, y, theta]
         Output: configurations with distance path_step between them
         '''
-        path = dubins.shortest_path(start_node.pose, next_pose)
-        configurations, _ = path.sample_many(self.)
+        path = dubins.shortest_path(start_node.pose, next_pose, self.turning_radius)
+        configurations, _ = path.sample_many(self.path_step)
         return configurations
 
     def get_next(self):
         """
         Input: None
         Output: pose [x, y] 
-        Pose sampled randomly from whole space with probability = self.sample_from_all 
+        Pose sampled randomly from whole space with probability = self.epsilon 
         and otherwise from the goal region
         """
-        if np.random.random() < self.sample_from_all:
+        if np.random.random() < self.epsilon:
             new_x = np.random.uniform(self.full_region["xmin"], self.full_region["xmax"])
             new_y = np.random.uniform(self.full_region["ymin"], self.full_region["ymax"])
             return (new_x, new_y)
@@ -139,7 +138,7 @@ class RRTstar:
         # TODO(alex)
         pass
 
-    def get_dist(pos1, pos2):
+    def get_dist(self, pos1, pos2):
         return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
 
     def find_nearest_node(pose):
