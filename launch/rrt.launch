@@ -1,5 +1,8 @@
 <launch>
-  <!-- Begin particle filter localization with params from sim_params.yaml -->
+  <!-- Launch the racecar simulator -->
+  <include file="$(find racecar_simulator)/launch/simulate.launch"/>
+  
+  <!-- Begin rrt for path planning -->
   <node pkg="lab6" type="rrt.py" name="rrt" output="screen">
     <rosparam command="load" file="$(find lab6)/src/rrt_params.yaml"/>
   </node>
