@@ -288,17 +288,20 @@ class RRTstar:
         print(self.cloud.points[0].x, self.cloud.points[0].y, self.cloud.points[0].z)
         self.particle_cloud_publisher.publish(self.cloud)
 
-        
-
 class Node:
     """
     RRT graph node
     """
+    id = 0 # counter for nodes
+
     def __init__(self, pose, parent = None, path = None, cost = 0.0):
         self.pose = pose # [x, y, theta]
         self.path = path # series of poses from parent to self
         self.parent = parent
         self.cost = cost # distance to source along edges
+
+        self.id = Node.id # self.id = index in RRT.nodes in RRT class
+        Node.id += 1
 
     def add_to_path(self, pose):
         """
@@ -306,8 +309,11 @@ class Node:
         """
         self.path.append(pose)
 
+    def set_parent(self, parent):
+        self.parent = parent
+
 
 if __name__ == "__main__":
     rospy.init_node("rrt")
-    pf = RRTstar()
+    rrt = RRTstar()
     rospy.spin()
