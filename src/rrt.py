@@ -62,7 +62,7 @@ class RRTstar:
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
 
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
-        rospy.Subscriber(self.GOAL_TOPIC, PoseWithCovarianceStamped, self.set_goal)
+        rospy.Subscriber(self.GOAL_TOPIC, PoseStamped, self.set_goal)
 
         rospy.Subscriber(
                 self.map_topic,
@@ -88,7 +88,7 @@ class RRTstar:
         """
         Gets goal pose from rviz nav goal marker.
         """
-        x, y = goal_pose.pose.pose.position.x, goal_pose.pose.pose.position.y
+        x, y = goal_pose.pose.position.x, goal_pose.pose.position.y
 
         self.goal_pose = [x, y, 0]
         r = self.goal_size/2
@@ -99,6 +99,14 @@ class RRTstar:
         self.goal_region["ymax"] = y+r
 
     def map_callback(self, map_msg):
+        while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
+            # print (self.start_pose, self.goal_pose)
+            continue
+
+        print "Start and Goal intialized:"
+        print "Start: ", self.start_pose
+        print "Goal: ", self.goal_pose
+
         # Convert the map to a numpy array
         map_ = np.array(map_msg.data, np.double)
         # map_ = np.clip(map_, 0, 1)
@@ -110,7 +118,7 @@ class RRTstar:
         #             self.map[i-10: i+10, j-10: j+10] = 1.0
         # Convert the origin to a tuple
         # scipy.misc.imsave("C:Home/map.png", self.map)
-        print(self.map.shape)
+        # print(self.map.shape)
         origin_p = map_msg.info.origin.position
         origin_o = map_msg.info.origin.orientation
         origin_o = tf.transformations.euler_from_quaternion((
@@ -119,7 +127,7 @@ class RRTstar:
                 origin_o.z,
                 origin_o.w))
         self.origin = (origin_p.x, origin_p.y, origin_o[2])
-        print(self.origin)
+        # print(self.origin)
         # test_path = []
         # for i in range(-220, 440):
         #     test_path.append([0, float(i)/20, 0])
@@ -157,8 +165,7 @@ class RRTstar:
                 new_node = Node(new_pose, closest, new_path, cost)
                 self.nodes.append(new_node)
                 # insert into tree
-                self.tree_insert(new_node)
-                print len(self.tree)
+                # self.tree_insert(new_node)
                 #make current node the node just added
                 self.current = self.nodes[-1]
                 # print("current_pose", self.current.pose)
@@ -255,7 +262,7 @@ class RRTstar:
         Input: Node object
         Output: Boolean representing if node is in goal region
         '''
-        if node.pose[0] < self.goal_region["xmin"] and node.pose[0] > goal_region["xmax"] and node.pose[1] < self.goal_region["ymin"] and node.pose[1] > goal_region["ymax"]:
+        if node.pose[0] < self.goal_region["xmin"] and node.pose[0] > self.goal_region["xmax"] and node.pose[1] < self.goal_region["ymin"] and node.pose[1] > self.goal_region["ymax"]:
             return True
 
     def tree_insert(self, node):
@@ -336,7 +343,7 @@ class RRTstar:
             self.cloud.points[node].x = self.nodes[node].pose[0]
             self.cloud.points[node].y = self.nodes[node].pose[1]
             self.cloud.points[node].z = 0
-        print(self.cloud.points[0].x, self.cloud.points[0].y, self.cloud.points[0].z)
+        # print(self.cloud.points[0].x, self.cloud.points[0].y, self.cloud.points[0].z)
         self.particle_cloud_publisher.publish(self.cloud)
 
 class Node:
