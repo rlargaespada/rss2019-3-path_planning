@@ -13,7 +13,7 @@ import numpy as np
 import dubins
 import tf
 from sensor_msgs.msg import PointCloud
-from geometry_msgs.msg import Point32
+from geometry_msgs.msg import Point32, PoseWithCovarianceStamped, PoseStamped, Pose
 import scipy.misc
 
 class RRTstar:
@@ -26,14 +26,13 @@ class RRTstar:
         goal = [x, y]
         """
         # initialize start and goal parameters
-        self.start = rospy.get_param("~start_pose")
-        self.goal = rospy.get_param("~goal_pose")
+        self.START_TOPIC = rospy.get_param("~start_topic")
+        self.GOAL_TOPIC = rospy.get_param("~goal_topic")
+        self.start_pose = [0, 0, 0] # x, y, theta
+        self.goal_pose = [0, 0, 0] # x, y, theta
         self.goal_size = rospy.get_param("~goal_size")
         self.map_topic = rospy.get_param("~map_topic")
-        self.goal_region = {"xmin": self.goal[0] - self.goal_size/2,
-                            "xmax": self.goal[0] + self.goal_size/2,
-                            "ymin": self.goal[1] - self.goal_size/2,
-                            "ymax": self.goal[1] + self.goal_size/2}
+        self.goal_region = {"xmin": 0, "xmax": 0, "ymin": 0, "ymax": 0} # setup in set_goal
         self.map_res = rospy.get_param("~map_res")
         self.PARTICLE_CLOUD_TOPIC = rospy.get_param("~particle_cloud")
 
@@ -62,6 +61,10 @@ class RRTstar:
         # initialize publishers and subscribers
         
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
+
+        rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
+        rospy.Subscriber(self.GOAL_TOPIC, PoseWithCovarianceStamped, self.set_goal)
+
         rospy.Subscriber(
                 self.map_topic,
                 OccupancyGrid,
