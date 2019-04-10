@@ -308,21 +308,26 @@ class RRTstar:
         """
         curr = self.current
         neighbor_idxs = self.find_neighbors(curr)
-        min_node = find_nearest_node(curr.pose)
 
-        for n_idx in neighbors:
+        # find best parent for the current node
+        for n_idx in neighbor_idxs:
             n = self.nodes[n_idx]
-            possible_path = self.create_path(curr, n)
+            possible_path = self.create_path(curr, n.pose)
             if not in_collision(possible_path):
                 possible_cost = n.cost + self.get_cost(possible_path)
                 if possible_cost < curr.cost:
                     # better path found
-                    min_node = n
+                    curr.set_parent(n)
 
-        # set parent of current to minimum cost node
-        curr.set_parent(min_node)
-
-        #TODO(abbie): Edge updates
+        # Check if existing paths can be improved by connecting through current node
+        for n_idx in neighbor_idxs:
+            n = self.nodes[n_idx]
+            possible_path = self.create_path(curr, n.pose)
+            if not in_collision(possible_path):
+                if n.cost > curr.cost + self.get_cost(possible_path):
+                    # set parent of neighbor to current node
+                    print "Rewiring"
+                    n.set_parent(curr)
 
     def plan_node_path(self, node):
         """
