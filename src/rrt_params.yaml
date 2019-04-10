@@ -16,3 +16,5 @@ map_res: .05 #size of one pixel on map
 traj_topic: "/rrt_traj"
 map_topic: "/map"
 particle_cloud: "/particle_cloud"
+start_topic: "/initialpose"
+goal_topic: "/goal"
