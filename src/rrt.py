@@ -152,7 +152,7 @@ class RRTstar:
             self.create_PointCloud()
             if not self.in_collision(new_path):
                 #Cost = distance.  Possible since path is discritized by length
-                cost = len(new_path)*self.path_step
+                cost = self.get_cost(new_path)
                 # print("cost", cost)
                 #Add node to nodes
                 self.nodes.append(Node(new_pose, closest, new_path, cost))
@@ -163,7 +163,7 @@ class RRTstar:
         #Define path from the last Node considered to goal
         path_to_goal = self.create_path(self.current, self.goal)
         #Define path of the last Node to goal
-        cost = len(path_to_goal)*self.path_step
+        cost = self.get_cost(path_to_goal)
         #Create node at goal to and add to nodes list
         self.end_node = Node(self.goal, self.current, path_to_goal, cost)
         self.nodes.append(self.end_node)
@@ -174,7 +174,6 @@ class RRTstar:
         self.pose_path = self.plan_pose_path()
         return self.pose_path
 
-                
 
     def steer(self, start_node, next_pose):
         """
@@ -229,9 +228,11 @@ class RRTstar:
         #return whether there are any non-zero values
         return np.count_nonzero(map_values) != 0
 
-
     def get_dist(self, pos1, pos2):
         return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
+
+    def get_cost(self, path):
+        return len(path) * self.path_step
 
     def find_nearest_node(self, pose):
         '''
