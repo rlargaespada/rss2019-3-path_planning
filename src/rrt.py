@@ -15,6 +15,7 @@ import tf
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32, PoseWithCovarianceStamped, PoseStamped, Pose
 import scipy.misc
+import matplotlib.pyplot as plt
 
 class RRTstar:
     """
@@ -119,6 +120,9 @@ class RRTstar:
         # Convert the origin to a tuple
         # scipy.misc.imsave("C:Home/map.png", self.map)
         # print(self.map.shape)
+        plt.imshow(self.map)
+        plt.show()
+
         origin_p = map_msg.info.origin.position
         origin_o = map_msg.info.origin.orientation
         origin_o = tf.transformations.euler_from_quaternion((
@@ -144,6 +148,7 @@ class RRTstar:
             # If our current node is in the goal, break
             if self.in_goal(self.current):
                 break
+            print len(self.nodes)
             # Get a random pose sample
             next_pose = self.get_next()
             # print("next_pose", next_pose)
@@ -153,21 +158,21 @@ class RRTstar:
             #Get actual pose for node
             new_pose = self.steer(closest, next_pose)
             # print("new_pose", new_pose)
-            #Get path from dubin. Note this is discretized as units of length
+            # Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
             # print("new_path start: ", new_path[0], "end: ", new_path[-1])
-            self.create_PointCloud()
+            # self.create_PointCloud()
             if not self.in_collision(new_path):
-                #Cost = distance.  Possible since path is discritized by length
                 cost = self.get_cost(new_path)
-                # print("cost", cost)
-                #Add node to nodes
+                print("cost", cost)
+                # Add node to nodes
                 new_node = Node(new_pose, closest, new_path, cost)
                 self.nodes.append(new_node)
                 # insert into tree
-                # self.tree_insert(new_node)
+                self.tree_insert(new_node)
                 #make current node the node just added
                 self.current = self.nodes[-1]
+                self.rewire()
                 # print("current_pose", self.current.pose)
 
         #Define path from the last Node considered to goal
@@ -275,12 +280,14 @@ class RRTstar:
         Output: Boolean representing if node is in goal region
         '''
         if node.pose[0] < self.goal_region["xmin"] and node.pose[0] > self.goal_region["xmax"] and node.pose[1] < self.goal_region["ymin"] and node.pose[1] > self.goal_region["ymax"]:
+            print "Goal found."
             return True
 
     def tree_insert(self, node):
         """
         Insert a node into the R-tree
         """
+        print "Inserting into tree"
         x, y = node.pose[0], node.pose[1]
         # d = self.map_res/2
         # xmin, ymin, xmax, ymax = x-d, x+d, y-d, y+d
