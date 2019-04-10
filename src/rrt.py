@@ -41,9 +41,9 @@ class RRTstar:
 
         # initialize algorithm parameters
         self.full_region = {
-                            "xmin": -26., 
-                            "xmax": 8., 
-                            "ymin": -11, 
+                            "xmin": -26.,
+                            "xmax": 8.,
+                            "ymin": -11,
                             "ymax": 21
                             }
         self.max_iter = rospy.get_param("~max_iter")
@@ -52,14 +52,13 @@ class RRTstar:
         self.d = rospy.get_param("~d")
         self.turning_radius = rospy.get_param("~turning_radius")
         self.path_step = rospy.get_param("~path_step")
-        # initilize graph structure
-        self.start_node = Node(self.start)
-        self.nodes = [self.start_node]
-        self.current = self.start_node
-        # self.tree = KDTree(np.array([n.pose for n in self.nodes]), leaf_size=20, metric='euclidean')
+
+        # initilize graph structure (start insertion in set_start)
+        self.current = [0, 0, 0]
+        self.nodes = []
+        self.tree = index.Index() # R-Tree for querying neighbors
 
         # initialize publishers and subscribers
-        
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
 
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
@@ -148,14 +147,18 @@ class RRTstar:
             # print("new_pose", new_pose)
             #Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
-            # print("new_path start: ", new_path[0], "end: ", new_path[-1]) 
+            # print("new_path start: ", new_path[0], "end: ", new_path[-1])
             self.create_PointCloud()
             if not self.in_collision(new_path):
                 #Cost = distance.  Possible since path is discritized by length
                 cost = self.get_cost(new_path)
                 # print("cost", cost)
                 #Add node to nodes
-                self.nodes.append(Node(new_pose, closest, new_path, cost))
+                new_node = Node(new_pose, closest, new_path, cost)
+                self.nodes.append(new_node)
+                # insert into tree
+                self.tree_insert(new_node)
+                print len(self.tree)
                 #make current node the node just added
                 self.current = self.nodes[-1]
                 # print("current_pose", self.current.pose)
@@ -198,8 +201,8 @@ class RRTstar:
     def get_next(self):
         """
         Input: None
-        Output: pose [x, y] 
-        Pose sampled randomly from whole space with probability = self.epsilon 
+        Output: pose [x, y]
+        Pose sampled randomly from whole space with probability = self.epsilon
         and otherwise from the goal region
         """
         if np.random.random() < self.epsilon:
@@ -213,6 +216,7 @@ class RRTstar:
 
     def in_collision(self, path):
         """
+        True if path is not collision free, False otherwise.
         """
         path_for_map = np.array(path)
         #Take only x and y
@@ -246,7 +250,7 @@ class RRTstar:
                 parent_node = node
         return parent_node
 
-    def in_goal(node):
+    def in_goal(self, node):
         '''
         Input: Node object
         Output: Boolean representing if node is in goal region
@@ -313,7 +317,7 @@ class RRTstar:
     def plan_pose_path(self):
         '''
         Input: None
-        Output: List of poses from first Node in self.node_path to 
+        Output: List of poses from first Node in self.node_path to
                 lst node in self.node_path
         '''
         path = []
