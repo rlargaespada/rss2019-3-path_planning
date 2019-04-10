@@ -71,6 +71,34 @@ class RRTstar:
                 self.map_callback,
                 queue_size=1)
 
+    def set_start(self, start_pose):
+        """
+        Gets starting pose from rviz pose estimate marker.
+        """
+        x, y = start_pose.pose.pose.position.x, start_pose.pose.pose.position.y
+        theta = 2*np.arctan(start_pose.pose.pose.orientation.z/start_pose.pose.pose.orientation.w)
+
+        self.start_pose = [x, y, theta]
+        start_node = Node(self.start_pose)
+
+        self.current = start_node
+        self.nodes.append(start_node)
+        self.tree_insert(start_node)
+
+    def set_goal(self, goal_pose):
+        """
+        Gets goal pose from rviz nav goal marker.
+        """
+        x, y = goal_pose.pose.pose.position.x, goal_pose.pose.pose.position.y
+
+        self.goal_pose = [x, y, 0]
+        r = self.goal_size/2
+
+        self.goal_region["xmin"] = x-r
+        self.goal_region["xmax"] = x+r
+        self.goal_region["ymin"] = y-r
+        self.goal_region["ymax"] = y+r
+
     def map_callback(self, map_msg):
         # Convert the map to a numpy array
         map_ = np.array(map_msg.data, np.double)
