@@ -278,10 +278,28 @@ class RRTstar:
         neighbor_idxs = list(self.tree.intersection(box))
 
         return neighbor_idxs
+
+    def rewire(self):
         """
+        Rewires graph by connecting the current node to the minimum cost path
         """
-        # TODO(abbie)
-        pass
+        curr = self.current
+        neighbor_idxs = self.find_neighbors(curr)
+        min_node = find_nearest_node(curr.pose)
+
+        for n_idx in neighbors:
+            n = self.nodes[n_idx]
+            possible_path = self.create_path(curr, n)
+            if not in_collision(possible_path):
+                possible_cost = n.cost + self.get_cost(possible_path)
+                if possible_cost < curr.cost:
+                    # better path found
+                    min_node = n
+
+        # set parent of current to minimum cost node
+        curr.set_parent(min_node)
+
+        #TODO(abbie): Edge updates
 
     def plan_node_path(self, node):
         """
