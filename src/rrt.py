@@ -7,7 +7,7 @@
     Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (acuel@mit.edu)
 """
 import rospy
-from sklearn.neighbors import KDTree
+from rtree import index
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
 import dubins
@@ -225,16 +225,30 @@ class RRTstar:
         if node.pose[0] < self.goal_region["xmin"] and node.pose[0] > goal_region["xmax"] and node.pose[1] < self.goal_region["ymin"] and node.pose[1] > goal_region["ymax"]:
             return True
 
-    def find_nearest_k(self, node):
+    def tree_insert(self, node):
+        """
+        Insert a node into the R-tree
+        """
+        x, y = node.pose[0], node.pose[1]
+        # d = self.map_res/2
+        # xmin, ymin, xmax, ymax = x-d, x+d, y-d, y+d
+
+        # self.tree.insert(node, (xmin, ymin, xmax, ymax))
+        self.tree.insert(node.id, (x, y, x, y))
+
+    def find_neighbors(self, node):
         """
         Input: node: (Node) node around which to query for neighbors
-        Output: idx, dists: indices of neighbors within neighbor_radius and their distances
+        Output: list of indices of nodes that fall within the box defined by
+                neighbor_radius
         """
-        # TODO(abbie)
-        idx, dists = self.tree.query_radius([node.pose], r=self.neighbor_radius, return_distance=True, sort_results=True)
-        return idx, dists
+        x, y = node.pose[0], node.pose[1]
+        nr = self.neighbor_radius
+        box = (x-nr, x+nr, y-nr, y+nr)
 
-    def rewire(self, new_node, knn):
+        neighbor_idxs = list(self.tree.intersection(box))
+
+        return neighbor_idxs
         """
         """
         # TODO(abbie)
