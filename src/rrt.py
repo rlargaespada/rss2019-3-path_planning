@@ -234,28 +234,40 @@ class RRTstar:
         path_for_map /= .05
         #Cast to int for indexing
         path_for_map = path_for_map.astype(int)
-        #get values from map
+        # get values from map
         map_values = self.map[path_for_map[:, 0], path_for_map[:, 1]]
-        #return whether there are any non-zero values
+        # return whether there are any non-zero values
         return np.count_nonzero(map_values) != 0
 
     def get_dist(self, pos1, pos2):
         return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
 
     def get_cost(self, path):
+        # Cost = distance.  Possible since path is discritized by length
         return len(path) * self.path_step
 
+    # def find_nearest_node(self, pose):
+    #     '''
+    #     Input: pose [x, y]
+    #     Output: Node closest to given pose
+    #     '''
+    #     min_dist = float("inf")
+    #     parent_node = None
+    #     for node in self.nodes:
+    #         if self.get_dist(node.pose, pose) < min_dist:
+    #             parent_node = node
+    #     return parent_node
+
     def find_nearest_node(self, pose):
-        '''
-        Input: pose [x, y]
-        Output: Node closest to given pose
-        '''
-        min_dist = float("inf")
-        parent_node = None
-        for node in self.nodes:
-            if self.get_dist(node.pose, pose) < min_dist:
-                parent_node = node
-        return parent_node
+        """
+        Output: Node closest to given node
+        """
+        x, y = pose[0], pose[1]
+        nearest = list(self.tree.nearest((x, y, x, y), 2)) # return two nearest because first nearest will always be itself
+
+        nearest_neighbor = self.nodes[nearest[-1]] # get node item from node list
+        # print nearest_neighbor
+        return nearest_neighbor
 
     def in_goal(self, node):
         '''
