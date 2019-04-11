@@ -118,16 +118,8 @@ class RRTstar:
                 if self.map_copy[i, j] != 0:
                     self.map[i-self.buff_factor: i+self.buff_factor, j-self.buff_factor: j+self.buff_factor] = 1.0
         # Convert the origin to a tuple
-<<<<<<< HEAD
         plt.imshow(self.map)
         plt.show()
-=======
-        # scipy.misc.imsave("C:Home/map.png", self.map)
-        # print(self.map.shape)
-        plt.imshow(self.map)
-        plt.show()
-
->>>>>>> refs/remotes/origin/sampling_planner
         origin_p = map_msg.info.origin.position
         origin_o = map_msg.info.origin.orientation
         origin_o = tf.transformations.euler_from_quaternion((
@@ -164,34 +156,19 @@ class RRTstar:
             closest = self.find_nearest_node(next_pose)
             #Get actual pose for node
             new_pose = self.steer(closest, next_pose)
-<<<<<<< HEAD
             #Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
             # print(np.max(np.array(new_path), axis = 0))
             self.create_PointCloud(self.nodes)
             if not self.in_collision(new_path):
                 cost = self.get_cost(new_path)
-=======
-            # print("new_pose", new_pose)
-            # Get path from dubin. Note this is discretized as units of length
-            new_path = self.create_path(closest, new_pose)
-            # print("new_path start: ", new_path[0], "end: ", new_path[-1])
-            # self.create_PointCloud()
-            if not self.in_collision(new_path):
-                cost = self.get_cost(new_path)
-                print("cost", cost)
->>>>>>> refs/remotes/origin/sampling_planner
                 # Add node to nodes
                 new_node = Node(new_pose, closest, new_path, cost)
                 self.nodes.append(new_node)
                 # insert into tree
                 self.tree_insert(new_node)
                 #make current node the node just added
-<<<<<<< HEAD
                 self.current = new_node
-=======
-                self.current = self.nodes[-1]
->>>>>>> refs/remotes/origin/sampling_planner
                 self.rewire()
                 # print("current_pose", self.current.pose)
 
@@ -313,23 +290,14 @@ class RRTstar:
         Input: Node object
         Output: Boolean representing if node is in goal region
         '''
-<<<<<<< HEAD
         if node.pose[0] > self.goal_region["xmin"] and node.pose[0] < self.goal_region["xmax"] and node.pose[1] > self.goal_region["ymin"] and node.pose[1] < self.goal_region["ymax"]:
-=======
-        if node.pose[0] < self.goal_region["xmin"] and node.pose[0] > self.goal_region["xmax"] and node.pose[1] < self.goal_region["ymin"] and node.pose[1] > self.goal_region["ymax"]:
-            print "Goal found."
->>>>>>> refs/remotes/origin/sampling_planner
             return True
 
     def tree_insert(self, node):
         """
         Insert a node into the R-tree
         """
-<<<<<<< HEAD
         # print "Inserting into tree"
-=======
-        print "Inserting into tree"
->>>>>>> refs/remotes/origin/sampling_planner
         x, y = node.pose[0], node.pose[1]
         # d = self.map_res/2
         # xmin, ymin, xmax, ymax = x-d, x+d, y-d, y+d
@@ -361,7 +329,6 @@ class RRTstar:
         # find best parent for the current node
         for n_idx in neighbor_idxs:
             n = self.nodes[n_idx]
-<<<<<<< HEAD
             if curr.pose != n.pose:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
@@ -370,19 +337,10 @@ class RRTstar:
                     if possible_cost < curr.cost:
                         # better path found
                         curr.set_parent(n)
-=======
-            possible_path = self.create_path(curr, n.pose)
-            if not in_collision(possible_path):
-                possible_cost = n.cost + self.get_cost(possible_path)
-                if possible_cost < curr.cost:
-                    # better path found
-                    curr.set_parent(n)
->>>>>>> refs/remotes/origin/sampling_planner
 
         # Check if existing paths can be improved by connecting through current node
         for n_idx in neighbor_idxs:
             n = self.nodes[n_idx]
-<<<<<<< HEAD
             if curr.pose != n.pose:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
@@ -391,14 +349,6 @@ class RRTstar:
                         # set parent of neighbor to current node
                         # print "Rewiring"
                         n.set_parent(curr)
-=======
-            possible_path = self.create_path(curr, n.pose)
-            if not in_collision(possible_path):
-                if n.cost > curr.cost + self.get_cost(possible_path):
-                    # set parent of neighbor to current node
-                    print "Rewiring"
-                    n.set_parent(curr)
->>>>>>> refs/remotes/origin/sampling_planner
 
     def plan_node_path(self, node):
         """
