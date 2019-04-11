@@ -149,7 +149,6 @@ class RRTstar:
             if self.in_goal(self.current):
                 print("END")
                 break
-            print len(self.nodes)
             # Get a random pose sample
             next_pose = self.get_next()
             #Get the closest node to our sample
