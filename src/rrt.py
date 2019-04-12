@@ -37,8 +37,11 @@ class RRTstar:
         self.map_topic = rospy.get_param("~map_topic")
         self.goal_region = {"xmin": 0, "xmax": 0, "ymin": 0, "ymax": 0} # setup in set_goal
         self.map_res = rospy.get_param("~map_res")
+        self.max_angle = rospy.get_param("~max_angle")
         self.PARTICLE_CLOUD_TOPIC = rospy.get_param("~particle_cloud")
         self.PATH_TOPIC = rospy.get_param("~path_topic")
+        self.base_link = rospy.get_param("~base_link")
+        self.map_name = rospy.get_param("~map")
 
         #Initialize visualization varibles
         self.cloud = PointCloud()
@@ -110,6 +113,7 @@ class RRTstar:
         map_ = np.array(map_msg.data, np.double)
         # map_ = np.clip(map_, 0, 1)
         self.map = np.reshape(map_, (map_msg.info.height, map_msg.info.width)).T
+        # self.map = np.flip(self.map, axis=0)
         self.map_copy = np.copy(self.map)
         print(self.map.shape)
         #Beef up the edges
@@ -128,13 +132,23 @@ class RRTstar:
                 origin_o.z,
                 origin_o.w))
         self.origin = (origin_p.x, origin_p.y, origin_o[2])
-        self.full_region = {
-                            "xmin": float(self.origin[0]),
-                            "xmax": map_msg.info.width*self.map_res + float(self.origin[0]),
-                            "ymin": float(self.origin[1]),
-                            "ymax": map_msg.info.height*self.map_res + float(self.origin[1])
-                            }
-        # print("HELLO", self.origin)
+        if self.map_name == "stata_basement":
+            self.full_region = {
+                                "xmin": -map_msg.info.width*self.map_res + float(self.origin[0]),
+                                "xmax": float(self.origin[0]),
+                                "ymin": -map_msg.info.height*self.map_res + float(self.origin[1]),
+                                "ymax": float(self.origin[1])
+                                }
+            self.map_flip_const = -1.
+        if self.map_name == "building_31":
+            self.full_region = {
+                                "xmin": float(self.origin[0]),
+                                "xmax": map_msg.info.width*self.map_res + float(self.origin[0]),
+                                "ymin": float(self.origin[1]),
+                                "ymax": map_msg.info.height*self.map_res + float(self.origin[1])
+                                }
+            self.map_flip_const = 1.
+        print("HELLO", self.full_region)
         # self.in_collision(np.array([[0., 0.], [0., 9.]]))
         self.run_rrt()
 
@@ -188,6 +202,39 @@ class RRTstar:
         return self.pose_path
 
 
+    def steer_alt(self, start_node, next_pose):
+        """
+        Input: Parent node and proposed next pose [x, y]
+        Output: the actual next pose [x, y, theta] (theta in direction of movement)
+        """
+        #Represents the theta that the wheels should turn: max(min(angle between start pose and new point, start angle + max_angle), start angle - max_angle)
+        theta = max(min((-np.arctan2(next_pose[1] - start_node.pose[1], next_pose[0] - start_node.pose[0]) + start_node.pose[2]), start_node.pose[2] + self.max_angle), start_node.pose[2] - self.max_angle)
+        print("thetaaaaaaaa:", theta)
+        theta = self.angle_correct(theta)
+        #Rotation matrix based starting position
+        rotation = np.array([[np.cos(start_node.pose[2]), -np.sin(start_node.pose[2]), 0],
+                             [np.sin(start_node.pose[2]), np.cos(start_node.pose[2]),  0],
+                             [0, 0, 1]])
+        #Turning radius based on wheels angled at theta
+        R = self.base_link/np.tan(theta) #Radius of circle
+        #Angle the robot wants to sweep out long the circle with R radus given distance d it drives during the steer function
+        phi = 2*np.pi*(self.d/(2*np.pi*R))
+        #Angle between the starting and ending poses of the robot with reference to the perpendicular to the car's direction
+        beta = (np.pi - phi)/2
+        #striaght line distance the car will travel during steer
+        L = 2*R*np.cos(beta)
+        #change in [x, y, theta] from start pose to end of steer in base_link reference frame
+        delta_np = np.array([L*np.cos(beta), L*np.sin(beta), phi])
+        #New pose after steer in map reference frame
+        new = np.array(start_node.pose) + np.matmul(rotation, delta_np).T
+        new = new.tolist()
+        # print("theta: ", theta)
+        # print("R", R)
+        # print("start: ", start_node.pose)
+        # print("next: ", next_pose)
+        # print("steer: ", new)
+        return new
+
     def steer(self, start_node, next_pose):
         """
         Input: Parent node and proposed next pose [x, y]
@@ -240,9 +287,9 @@ class RRTstar:
         """
         path_for_map = np.array(path)
         #Take only x and y
-        path_for_map = path_for_map[:, :2]
+        path_for_map = path_for_map[:, :2]*self.map_flip_const
         #subtract origin from position
-        path_for_map -= np.tile(np.array([self.origin[0], self.origin[1]]), (len(path), 1))
+        path_for_map -= np.tile(np.array([self.origin[0], self.origin[1]]), (len(path), 1))*self.map_flip_const
         # print(path_for_map)
         #Resize to fit dimensions of map
         path_for_map /= self.map_res
@@ -269,7 +316,8 @@ class RRTstar:
     #     min_dist = float("inf")
     #     parent_node = None
     #     for node in self.nodes:
-    #         if self.get_dist(node.pose, pose) < min_dist:
+    #         print(node.pose[2])
+    #         if self.get_dist(node.pose, pose) + 3*abs((-np.arctan2(pose[1] - node.pose[1], pose[0] - node.pose[0]) + self.angle_correct(node.pose[2]))) < min_dist:
     #             parent_node = node
     #     return parent_node
 
@@ -334,6 +382,7 @@ class RRTstar:
                     # print(curr.pose, n.pose)
                     possible_cost = n.cost + self.get_cost(possible_path)
                     if possible_cost < curr.cost:
+                        print("rwrng")
                         # better path found
                         curr.set_parent(n)
 
@@ -346,7 +395,7 @@ class RRTstar:
                     if n.cost > curr.cost + self.get_cost(possible_path):
                         # print(n.pose, curr.pose)
                         # set parent of neighbor to current node
-                        # print "Rewiring"
+                        print "Rewiring"
                         n.set_parent(curr)
 
     def plan_node_path(self, node):
@@ -406,6 +455,11 @@ class RRTstar:
         path.header = pose_stamp.header
         self.path_publisher.publish(path)
 
+    def angle_correct(self, theta):
+        theta %= 2*np.pi
+        if theta > np.pi:
+            theta = theta - 2*np.pi
+        return theta
 
 class Node:
     """

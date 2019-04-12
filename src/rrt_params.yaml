@@ -2,7 +2,7 @@
 start_pose: [0, 0, 0]
 goal_pose: [10, 10, 10] # not sure if this is better as an rviz published point
 goal_size: 0.5 # side length of square surrounding goal region
-buff_map: 2 #number of pixels around which to buff the walls on map
+buff_map: 5 #number of pixels around which to buff the walls on map
 
 # rrt* algorithm parameters
 epsilon: 0.8 # sample from goal region with probability 1-epsilon
@@ -12,6 +12,9 @@ d: 0.5 # [meters] distance to travel during steering.
 turning_radius: 1.0 #turning radius of racecar
 path_step: .05 #distance between each step on a path
 map_res: .05 #size of one pixel on map
+max_angle: .2 #max angle of racecar
+base_link: .32 #base_link
+map: "stata_basement" #name of map being used
 
 # topics
 traj_topic: "/rrt_traj"
