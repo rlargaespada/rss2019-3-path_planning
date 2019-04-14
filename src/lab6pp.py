@@ -34,7 +34,6 @@ class PathPlanning:
 		# subscribers here
 		self.sub = rospy.Subscriber(self.PATH_TOPIC, MultiArrayLayout, self.callback, queue_size=10)
 		self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
-		self.wheelbase = float(rospy.get_param("~wheelbase"))
 		self.trajectory  = utils.LineTrajectory("/followed_trajectory")
 		self.traj_sub = rospy.Subscriber(self.trajectory_topic, PolygonStamped, self.trajectory_callback, queue_size=1)
 
@@ -89,7 +88,22 @@ class PathPlanning:
 
 		#combined proportional-pure persuit controller with Ackermann steering
 		L = .324 #length of wheel base [m]
-		l = .5*self.VELOCITY #look ahead dist [m]
+		
+		x,y = path_remaining
+		m,b = np.polyfit(x[0:10],y[0:10],1)
+		#if path heading is within 15 degrees of straight ahead
+		#
+		#
+		# THIS PARAM MUST BE TUNED!!!!
+		# WANT CAR TO TURN IN TIME BUT BE ROBUST TO SLIGHT DEVIATIONS IN PATH
+		# SHOULD TEST IN SIMULATION TO FIND OPTIMAL VALUE
+		#
+		if -.26<np.arctan(m)<.26:
+			l = .5*self.VELOCITY #look ahead dist [m]
+		else:
+			l = .2*self.VELOCITY #look ahead dist [m]
+
+
 		path_step=.5 #distance between waypoints
 		#find point in path one lookahead distance out
 		#this is the fewest possible computations
@@ -104,6 +118,9 @@ class PathPlanning:
 			if 0<l-dists_remaining[j]<path_step:
 				ind = j
 				break
+		else:
+			path_remaining = d
+			ind = 0
 		#find slope of line segment containing the target point
 		x1 = path_remaining[ind,0]
 		y1 = path_remaining[ind,1]
@@ -132,7 +149,7 @@ class PathPlanning:
 
 		# compute ackermann steering angle to feed into cotroller
 		eta = np.arctan(y_new/x_new) #angle between velocity vector and desired path [rad]
-		u = np.arctan(2*self.wheelbase*np.sin(eta)/l) #sets input steering angle from controller [rad]
+		u = np.arctan(2*L*np.sin(eta)/l) #sets input steering angle from controller [rad]
 
 
 		A = AckermannDriveStamped()
