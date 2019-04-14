@@ -106,6 +106,7 @@ class RRTstar:
             # print (self.start_pose, self.goal_pose)
             continue
 
+        print "Loading map:", rospy.get_param("~map"), "..."
         print "Start and Goal intialized:"
         print "Start: ", self.start_pose
         print "Goal: ", self.goal_pose
@@ -117,10 +118,10 @@ class RRTstar:
         self.map_copy = np.copy(self.map)
         print(self.map.shape)
         #Beef up the edges
-        # for i in range(self.map_copy.shape[0]):
-        #     for j in range(self.map_copy.shape[1]):
-        #         if self.map_copy[i, j] != 0:
-        #             self.map[i-self.buff_factor: i+self.buff_factor, j-self.buff_factor: j+self.buff_factor] = 1.0
+        for i in range(self.map_copy.shape[0]):
+            for j in range(self.map_copy.shape[1]):
+                if self.map_copy[i, j] != 0:
+                    self.map[i-self.buff_factor: i+self.buff_factor, j-self.buff_factor: j+self.buff_factor] = 1.0
         # Convert the origin to a tuple
         # plt.imshow(self.map)
         # plt.show()
@@ -131,7 +132,7 @@ class RRTstar:
                 origin_o.y,
                 origin_o.z,
                 origin_o.w))
-        self.origin = (origin_p.x, origin_p.y, origin_o[2])
+        self.origin = (origin_p.x-.5, origin_p.y-.5, origin_o[2])
         if self.map_name == "stata_basement":
             self.full_region = {
                                 "xmin": -map_msg.info.width*self.map_res + float(self.origin[0]),
@@ -408,6 +409,7 @@ class RRTstar:
                         print("rwrng")
                         # better path found
                         curr.set_parent(n)
+                        curr.set_path(possible_path)
 
         # Check if existing paths can be improved by connecting through current node
         for n_idx in neighbor_idxs:
@@ -420,6 +422,7 @@ class RRTstar:
                         # set parent of neighbor to current node
                         print "Rewiring"
                         n.set_parent(curr)
+                        n.set_path(possible_path)
 
     def plan_node_path(self, node):
         """
@@ -446,7 +449,7 @@ class RRTstar:
         path = self.create_path(grandparent, node.pose)
         if not self.in_collision(path):
             cost = self.get_cost(path)
-            if cost + grandparent.cost < node.cost and cost < 1:
+            if cost + grandparent.cost < node.cost and cost < self.neighbor_radius:
                 print("CONNECT WITH YOUR ROOTS")
                 node.parent = grandparent
 
@@ -509,14 +512,17 @@ class Node:
         self.id = Node.id # self.id = index in RRT.nodes in RRT class
         Node.id += 1
 
-    def add_to_path(self, pose):
-        """
-        Adds a pose to path generated from Dubin steering
-        """
-        self.path.append(pose)
+    # def add_to_path(self, pose):
+    #     """
+    #     Adds a pose to path generated from Dubin steering
+    #     """
+    #     self.path.append(pose)
 
     def set_parent(self, parent):
         self.parent = parent
+
+    def set_path(self, path):
+        self.path = path
 
 
 if __name__ == "__main__":
