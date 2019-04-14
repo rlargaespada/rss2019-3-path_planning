@@ -166,10 +166,16 @@ class RRTstar:
             counter += 1
             print(counter)
             if self.in_goal(self.current) and already_found == False:
+                path_to_goal = self.create_path(self.current, self.goal_pose)
+                cost = self.get_cost(path_to_goal)
+                self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
+                self.nodes.append(self.end_node)
                 print("END")
-                break
+                # break
                 overflow_limit = 1.5*counter
                 already_found = True
+                # turn off goal biasing
+                # self.epsilon = 1.0
             # Get a random pose sample
             next_pose = self.get_next()
             #Get the closest node to our sample
@@ -193,14 +199,14 @@ class RRTstar:
                 # print("current_pose", self.current.pose)
 
         #Define path from the last Node considered to goal
-        path_to_goal = self.create_path(self.current, self.goal_pose)
+        # path_to_goal = self.create_path(self.current, self.goal_pose)
         #Define path of the last Node to goal
-        cost = self.get_cost(path_to_goal)
+        # cost = self.get_cost(path_to_goal)
         #Create node at goal to and add to nodes list
-        self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
-        self.nodes.append(self.end_node)
+        # self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
+        # self.nodes.append(self.end_node)
         self.node_path = self.plan_node_path(self.end_node)
-        self.nodes.append(self.end_node)
+        # self.nodes.append(self.end_node)
 
         for node in self.node_path[4:]:
             self.check_ancestors(node)
@@ -287,11 +293,16 @@ class RRTstar:
         if np.random.random() < self.epsilon:
             new_x = np.random.uniform(self.full_region["xmin"], self.full_region["xmax"])
             new_y = np.random.uniform(self.full_region["ymin"], self.full_region["ymax"])
-            return (new_x, new_y)
+            new = (new_x, new_y)
         else:
             new_x = np.random.uniform(self.goal_region["xmin"], self.goal_region["xmax"])
             new_y = np.random.uniform(self.goal_region["ymin"], self.goal_region["ymax"])
-            return (new_x, new_y)
+            new = (new_x, new_y)
+
+        if not self.in_collision([new]):
+            return new
+        else:
+            return self.get_next()
 
     def in_collision(self, path):
         """
