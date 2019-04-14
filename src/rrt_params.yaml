@@ -14,7 +14,7 @@ path_step: .05 #distance between each step on a path
 map_res: .05 #size of one pixel on map
 max_angle: .2 #max angle of racecar
 base_link: .32 #base_link
-map: "stata_basement" #name of map being used
+map: "building_31" #name of map being used
 
 # topics
 traj_topic: "/rrt_traj"

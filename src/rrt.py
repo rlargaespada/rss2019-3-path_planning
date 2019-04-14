@@ -117,13 +117,13 @@ class RRTstar:
         self.map_copy = np.copy(self.map)
         print(self.map.shape)
         #Beef up the edges
-        for i in range(self.map_copy.shape[0]):
-            for j in range(self.map_copy.shape[1]):
-                if self.map_copy[i, j] != 0:
-                    self.map[i-self.buff_factor: i+self.buff_factor, j-self.buff_factor: j+self.buff_factor] = 1.0
+        # for i in range(self.map_copy.shape[0]):
+        #     for j in range(self.map_copy.shape[1]):
+        #         if self.map_copy[i, j] != 0:
+        #             self.map[i-self.buff_factor: i+self.buff_factor, j-self.buff_factor: j+self.buff_factor] = 1.0
         # Convert the origin to a tuple
-        plt.imshow(self.map)
-        plt.show()
+        # plt.imshow(self.map)
+        # plt.show()
         origin_p = map_msg.info.origin.position
         origin_o = map_msg.info.origin.orientation
         origin_o = tf.transformations.euler_from_quaternion((
@@ -158,11 +158,18 @@ class RRTstar:
         Output: Path from Start to Goal Region
         runs rrt algorithm
         '''
-        while True:
+        counter = 0
+        overflow_limit = float("inf")
+        already_found = False
+        while counter < overflow_limit:
             # If our current node is in the goal, break
-            if self.in_goal(self.current):
+            counter += 1
+            print(counter)
+            if self.in_goal(self.current) and already_found == False:
                 print("END")
                 break
+                overflow_limit = 1.5*counter
+                already_found = True
             # Get a random pose sample
             next_pose = self.get_next()
             #Get the closest node to our sample
@@ -174,7 +181,7 @@ class RRTstar:
             # print(np.max(np.array(new_path), axis = 0))
             self.create_PointCloud(self.nodes)
             if not self.in_collision(new_path):
-                cost = self.get_cost(new_path)
+                cost = self.get_cost(new_path) + closest.cost
                 # Add node to nodes
                 new_node = Node(new_pose, closest, new_path, cost)
                 self.nodes.append(new_node)
@@ -192,7 +199,12 @@ class RRTstar:
         #Create node at goal to and add to nodes list
         self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
         self.nodes.append(self.end_node)
-        #Create sequence of nodes from start to goal
+        self.node_path = self.plan_node_path(self.end_node)
+        self.nodes.append(self.end_node)
+
+        for node in self.node_path[4:]:
+            self.check_ancestors(node)
+
         self.node_path = self.plan_node_path(self.end_node)
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
@@ -416,6 +428,16 @@ class RRTstar:
 
         path = np.vstack([x.path for x in self.node_path[1:]])
         return path
+
+    def check_ancestors(self, node):
+        parent = node.parent
+        grandparent = parent.parent
+        path = self.create_path(grandparent, node.pose)
+        if not self.in_collision(path):
+            cost = self.get_cost(path)
+            if cost + grandparent.cost < node.cost and cost < 1:
+                print("CONNECT WITH YOUR ROOTS")
+                node.parent = grandparent
 
     def create_PointCloud(self, nodes):
         '''
