@@ -175,7 +175,7 @@ class RRTstar:
                 overflow_limit = 1.5*counter
                 already_found = True
                 # turn off goal biasing
-                # self.epsilon = 1.0
+                self.epsilon = 1.0
             # Get a random pose sample
             next_pose = self.get_next()
             #Get the closest node to our sample
