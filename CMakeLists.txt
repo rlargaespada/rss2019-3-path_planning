@@ -7,10 +7,15 @@ project(lab6)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+<<<<<<< HEAD
 find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
 )
+=======
+find_package(catkin REQUIRED
+  std_msgs)
+>>>>>>> aa386861e99068619d20c53ed8b0e3d7f3c4a78a
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
