@@ -400,6 +400,21 @@ class RRTstar:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.parent = grandparent
 
+    def optimize_path_next(self, path):
+        """
+        Input: list of Nodes representing a path
+        Output: next pose to steer towards from near the path
+        """
+        # select a random point along the path
+        rand_idx = np.random.randint(len(path))
+        x, y = tuple(path[rand_idx].pose)
+        nr = self.neighbor_radius
+
+        rand_x = np.random.uniform(x-nr, x+nr)
+        rand_y = np.random.uniform(y-nr, y+nr)
+
+        return (rand_x, rand_y)
+
     def create_PointCloud(self, nodes):
         '''
         Create and publish point cloud of particles and current pose marker
