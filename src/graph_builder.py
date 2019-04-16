@@ -129,7 +129,7 @@ class search_algorithm:
         self.map_graph = Graph()
         self.map_graph.build_map(self.map)
         
-        #convert map so that large empty sels are consolidated
+        #convert map so that large empty cells are consolidated
         
 
 
