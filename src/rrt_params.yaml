@@ -1,12 +1,12 @@
-# start and goal setup
-start_pose: [0, 0, 0]
-goal_pose: [10, 10, 10] # not sure if this is better as an rviz published point
+# map setup
 goal_size: 0.5 # side length of square surrounding goal region
 buff_map: 5 # number of pixels around which to buff the walls on map
+origin_x_offset: -0.5 # additive factor by which the given origin is off from the map
+origin_y_offset: -0.5
 
 # rrt* algorithm parameters
 epsilon: 0.8 # sample from goal region with probability 1-epsilon
-max_iter: 10000 # cap size of graph (idk if this is necessary?)
+max_iter: 10000 # cap size of graph
 neighbor_radius: 1.5 # number of nearest neighbors to check for rewiring
 d: 0.5 # [meters] distance to travel during steering.
 turning_radius: 1.0 #turning radius of racecar

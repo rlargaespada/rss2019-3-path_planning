@@ -4,7 +4,7 @@
     Implementation of RRT* (Rapidly exploring Random Trees) using Dubin
     steering.
 
-    Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (acuel@mit.edu)
+    Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (alexcuel@mit.edu)
 """
 import rospy
 from rtree import index
@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 class RRTstar:
     """
-    RRT* using Dubin Steering
+    RRT* with path smoothing
     """
     def __init__(self):
         """
@@ -42,6 +42,8 @@ class RRTstar:
         self.PATH_TOPIC = rospy.get_param("~path_topic")
         self.base_link = rospy.get_param("~base_link")
         self.map_name = rospy.get_param("~map")
+        self.origin_x_offset = rospy.get_param("~origin_x_offset")
+        self.origin_y_offset = rospy.get_param("~origin_y_offset")
 
         #Initialize visualization varibles
         self.cloud = PointCloud()
@@ -54,11 +56,13 @@ class RRTstar:
         self.turning_radius = rospy.get_param("~turning_radius")
         self.path_step = rospy.get_param("~path_step")
         self.buff_factor = rospy.get_param("~buff_map")
+        self.counter = 0
 
         # initilize graph structure (start insertion in set_start)
         self.current = [0, 0, 0]
         self.nodes = []
         self.tree = index.Index() # R-Tree for querying neighbors
+        self.end_node = None
 
         # initialize publishers and subscribers
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
@@ -103,7 +107,6 @@ class RRTstar:
 
     def map_callback(self, map_msg):
         while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
-            # print (self.start_pose, self.goal_pose)
             continue
 
         print "Loading map:", rospy.get_param("~map"), "..."
@@ -116,7 +119,6 @@ class RRTstar:
         self.map = np.reshape(map_, (map_msg.info.height, map_msg.info.width)).T
         # self.map = np.flip(self.map, axis=0)
         self.map_copy = np.copy(self.map)
-        print(self.map.shape)
         #Beef up the edges
         for i in range(self.map_copy.shape[0]):
             for j in range(self.map_copy.shape[1]):
@@ -132,7 +134,7 @@ class RRTstar:
                 origin_o.y,
                 origin_o.z,
                 origin_o.w))
-        self.origin = (origin_p.x-.5, origin_p.y-.5, origin_o[2])
+        self.origin = (origin_p.x+self.origin_x_offset, origin_p.y+self.origin_y_offset, origin_o[2])
         if self.map_name == "stata_basement":
             self.full_region = {
                                 "xmin": -map_msg.info.width*self.map_res + float(self.origin[0]),
@@ -149,8 +151,7 @@ class RRTstar:
                                 "ymax": map_msg.info.height*self.map_res + float(self.origin[1])
                                 }
             self.map_flip_const = 1.
-        print("HELLO", self.full_region)
-        # self.in_collision(np.array([[0., 0.], [0., 9.]]))
+
         self.run_rrt()
 
     def run_rrt(self):
@@ -159,33 +160,30 @@ class RRTstar:
         Output: Path from Start to Goal Region
         runs rrt algorithm
         '''
-        counter = 0
-        overflow_limit = float("inf")
         already_found = False
-        while counter < overflow_limit:
+        while self.counter < self.max_iter:
             # If our current node is in the goal, break
-            counter += 1
-            print(counter)
+            self.counter += 1
             if self.in_goal(self.current) and already_found == False:
                 path_to_goal = self.create_path(self.current, self.goal_pose)
                 cost = self.get_cost(path_to_goal)
+                # Save first node found inside goal region
                 self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
                 self.nodes.append(self.end_node)
-                print("END")
+                print "FOUND GOAL IN", self.counter, "STEPS."
                 # break
-                overflow_limit = 1.5*counter
+                self.max_iter = 1.5*self.counter # run for 1.5 the amount of time it took to find goal in order to optimize
                 already_found = True
-                # turn off goal biasing
-                self.epsilon = 1.0
+                self.epsilon = 1.0 # turn off goal biasing
             # Get a random pose sample
             next_pose = self.get_next()
             #Get the closest node to our sample
             closest = self.find_nearest_node(next_pose)
             #Get actual pose for node
             new_pose = self.steer(closest, next_pose)
-            #Get path from dubin. Note this is discretized as units of length
+            # Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
-            # print(np.max(np.array(new_path), axis = 0))
+
             self.create_PointCloud(self.nodes)
             if not self.in_collision(new_path):
                 cost = self.get_cost(new_path) + closest.cost
@@ -197,17 +195,13 @@ class RRTstar:
                 #make current node the node just added
                 self.current = new_node
                 self.rewire()
-                # print("current_pose", self.current.pose)
 
-        #Define path from the last Node considered to goal
-        # path_to_goal = self.create_path(self.current, self.goal_pose)
-        #Define path of the last Node to goal
-        # cost = self.get_cost(path_to_goal)
-        #Create node at goal to and add to nodes list
-        # self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
-        # self.nodes.append(self.end_node)
+        if self.end_node is None:
+            print "Failed to find goal within", self.max_iter, "steps."
+            return None
+
+        # Get path to source from goal node
         self.node_path = self.plan_node_path(self.end_node)
-        # self.nodes.append(self.end_node)
 
         for node in self.node_path[4:]:
             self.check_ancestors(node)
@@ -216,43 +210,9 @@ class RRTstar:
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
         self.pose_path = self.plan_pose_path()
-        print(len(self.pose_path))
+        print "Length of path:", len(self.pose_path)
         self.draw_path(self.pose_path)
         return self.pose_path
-
-
-    def steer_alt(self, start_node, next_pose):
-        """
-        Input: Parent node and proposed next pose [x, y]
-        Output: the actual next pose [x, y, theta] (theta in direction of movement)
-        """
-        #Represents the theta that the wheels should turn: max(min(angle between start pose and new point, start angle + max_angle), start angle - max_angle)
-        theta = max(min((-np.arctan2(next_pose[1] - start_node.pose[1], next_pose[0] - start_node.pose[0]) + start_node.pose[2]), start_node.pose[2] + self.max_angle), start_node.pose[2] - self.max_angle)
-        print("thetaaaaaaaa:", theta)
-        theta = self.angle_correct(theta)
-        #Rotation matrix based starting position
-        rotation = np.array([[np.cos(start_node.pose[2]), -np.sin(start_node.pose[2]), 0],
-                             [np.sin(start_node.pose[2]), np.cos(start_node.pose[2]),  0],
-                             [0, 0, 1]])
-        #Turning radius based on wheels angled at theta
-        R = self.base_link/np.tan(theta) #Radius of circle
-        #Angle the robot wants to sweep out long the circle with R radus given distance d it drives during the steer function
-        phi = 2*np.pi*(self.d/(2*np.pi*R))
-        #Angle between the starting and ending poses of the robot with reference to the perpendicular to the car's direction
-        beta = (np.pi - phi)/2
-        #striaght line distance the car will travel during steer
-        L = 2*R*np.cos(beta)
-        #change in [x, y, theta] from start pose to end of steer in base_link reference frame
-        delta_np = np.array([L*np.cos(beta), L*np.sin(beta), phi])
-        #New pose after steer in map reference frame
-        new = np.array(start_node.pose) + np.matmul(rotation, delta_np).T
-        new = new.tolist()
-        # print("theta: ", theta)
-        # print("R", R)
-        # print("start: ", start_node.pose)
-        # print("next: ", next_pose)
-        # print("steer: ", new)
-        return new
 
     def steer(self, start_node, next_pose):
         """
@@ -307,18 +267,17 @@ class RRTstar:
 
     def in_collision(self, path):
         """
-        True if path is not collision free, False otherwise.
+        Input: list of poses that represent a path
+        Output: True if path is not collision free, False otherwise.
         """
         path_for_map = np.array(path)
-        #Take only x and y
+        # Take only x and y
         path_for_map = path_for_map[:, :2]*self.map_flip_const
-        #subtract origin from position
+        # Subtract origin from position
         path_for_map -= np.tile(np.array([self.origin[0], self.origin[1]]), (len(path), 1))*self.map_flip_const
-        # print(path_for_map)
-        #Resize to fit dimensions of map
+        # Resize to fit dimensions of map
         path_for_map /= self.map_res
-        # print(path_for_map)
-        #Cast to int for indexing
+        # Cast to int for indexing
         path_for_map = path_for_map.astype(int)
         # get values from map
         map_values = self.map[path_for_map[:, 0], path_for_map[:, 1]]
@@ -332,28 +291,16 @@ class RRTstar:
         # Cost = distance.  Possible since path is discritized by length
         return len(path) * self.path_step
 
-    # def find_nearest_node(self, pose):
-    #     '''
-    #     Input: pose [x, y]
-    #     Output: Node closest to given pose
-    #     '''
-    #     min_dist = float("inf")
-    #     parent_node = None
-    #     for node in self.nodes:
-    #         print(node.pose[2])
-    #         if self.get_dist(node.pose, pose) + 3*abs((-np.arctan2(pose[1] - node.pose[1], pose[0] - node.pose[0]) + self.angle_correct(node.pose[2]))) < min_dist:
-    #             parent_node = node
-    #     return parent_node
-
     def find_nearest_node(self, pose):
         """
+        Input: pose [x, y] or [x, y, theta]
         Output: Node closest to given node
         """
         x, y = pose[0], pose[1]
-        nearest = list(self.tree.nearest((x, y, x, y), 2)) # return two nearest because first nearest will always be itself
+        # return two nearest because first nearest will always be itself
+        nearest = list(self.tree.nearest((x, y, x, y), 2))
 
         nearest_neighbor = self.nodes[nearest[-1]] # get node item from node list
-        # print nearest_neighbor
         return nearest_neighbor
 
     def in_goal(self, node):
@@ -361,19 +308,14 @@ class RRTstar:
         Input: Node object
         Output: Boolean representing if node is in goal region
         '''
-        if node.pose[0] > self.goal_region["xmin"] and node.pose[0] < self.goal_region["xmax"] and node.pose[1] > self.goal_region["ymin"] and node.pose[1] < self.goal_region["ymax"]:
+        if self.goal_region["xmin"] < node.pose[0] < self.goal_region["xmax"] and self.goal_region["ymin"] < node.pose[1] < self.goal_region["ymax"]:
             return True
 
     def tree_insert(self, node):
         """
         Insert a node into the R-tree
         """
-        # print "Inserting into tree"
         x, y = node.pose[0], node.pose[1]
-        # d = self.map_res/2
-        # xmin, ymin, xmax, ymax = x-d, x+d, y-d, y+d
-
-        # self.tree.insert(node, (xmin, ymin, xmax, ymax))
         self.tree.insert(node.id, (x, y, x, y))
 
     def find_neighbors(self, node):
@@ -392,7 +334,9 @@ class RRTstar:
 
     def rewire(self):
         """
-        Rewires graph by connecting the current node to the minimum cost path
+        Input: None
+        Output: None
+        Rewires graph by connecting the current node to the minimum cost path.
         """
         curr = self.current
         neighbor_idxs = self.find_neighbors(curr)
@@ -403,10 +347,8 @@ class RRTstar:
             if curr.pose != n.pose:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
-                    # print(curr.pose, n.pose)
                     possible_cost = n.cost + self.get_cost(possible_path)
                     if possible_cost < curr.cost:
-                        print("rwrng")
                         # better path found
                         curr.set_parent(n)
                         curr.set_path(possible_path)
@@ -418,9 +360,7 @@ class RRTstar:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
                     if n.cost > curr.cost + self.get_cost(possible_path):
-                        # print(n.pose, curr.pose)
                         # set parent of neighbor to current node
-                        print "Rewiring"
                         n.set_parent(curr)
                         n.set_path(possible_path)
 
@@ -444,13 +384,20 @@ class RRTstar:
         return path
 
     def check_ancestors(self, node):
+        """
+        Input: Node object
+        Output: None
+        Checks if cost can be improved by setting the parent of the input node
+        to one of its ancestors.
+        """
+        # TODO(abbie/alex): preserve points around corners
         parent = node.parent
         grandparent = parent.parent
         path = self.create_path(grandparent, node.pose)
         if not self.in_collision(path):
             cost = self.get_cost(path)
-            if cost + grandparent.cost < node.cost and cost < self.neighbor_radius:
-                print("CONNECT WITH YOUR ROOTS")
+            if cost + grandparent.cost < node.cost and cost < 2 * self.neighbor_radius:
+                # print("CONNECT WITH YOUR ROOTS")
                 node.parent = grandparent
 
     def create_PointCloud(self, nodes):
