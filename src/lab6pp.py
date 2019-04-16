@@ -8,23 +8,24 @@
 import numpy as np
 import rospy
 from rospy.numpy_msg import numpy_msg
-from std_msgs.msg import MultiArrayLayout
+from std_msgs.msg import MultiArrayLayout, Float32
 from ackermann_msgs.msg import AckermannDriveStamped
 import utils
-from geometry_msgs.msg import PolygonStamped
+from geometry_msgs.msg import PolygonStamped, Point32
 from visualization_msgs.msg import Marker
 import numpy as np
 import warnings
-from std_msgs import Float32
+
 warnings.simplefilter('ignore', np.RankWarning)
 
 class PathPlanning:
 	# Access these variables in class functions with self:
 	# i.e. self.CONSTANT
-	#PATH_TOPIC = rospy.get_param("~path_topic")
+	PATH_TOPIC = rospy.get_param("~path_topic")
 	DRIVE_TOPIC = rospy.get_param("~drive_topic")
 	VELOCITY = float(rospy.get_param("~velocity"))  # [m/s]
-	POSITION = rospy.get_param("~position") # (x,y), robot position in map frame
+	local_topic = "/estim_pose"
+	#POSITION = None #rospy.get_param("~position") # (x,y), robot position in map frame
 
 
 
@@ -32,6 +33,8 @@ class PathPlanning:
 		# TODO:
 		# Initialize your publishers and
 		# subscribers here
+		#self.start_sub = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped, self.set_start)
+		self.POSITION = rospy.Subscriber(self.local_topic,Point32,queue_size=10)
 		self.sub = rospy.Subscriber(self.PATH_TOPIC, MultiArrayLayout, self.callback, queue_size=10)
 		self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
 		#self.trajectory  = utils.LineTrajectory("/followed_trajectory")
@@ -78,7 +81,7 @@ class PathPlanning:
 			return a
 		#data_vec = np.array(data) # (n,2)
 		data_vec = conv()
-		pos_map = np.array([[POSITION[0],POSITION[1]]]) # (1,2)
+		pos_map = np.array([[self.POSITION[0],self.POSITION[1]]]) # (1,2)
 
 		d = data_vec-pos_map # (n,2), puts data in robot frame (robot is at (0,0)), splits data into x and y each of length n
 
