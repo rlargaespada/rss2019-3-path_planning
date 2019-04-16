@@ -84,7 +84,7 @@ class Graph(object):
 
 		#squares next to ones should be single-square zeros
 		for square in occupied_coords:
-			neighbors = get_neighbor_coords(square)
+			neighbors = g.get_neighbor_coords(square)
 			for i in range(3):
 				if map[neighbors[i][0], neighbors[i][0]] != 1:
 					pass
@@ -110,9 +110,9 @@ class Consolidated_Graph(Graph):
 		y = coord[1]
 
 		#U, L, R, D
-		neighbors = {(x-1, y),
+		neighbors = [(x-1, y),
 					(x, y-1),(x, y+1),
-					(x+1, y)}
+					(x+1, y)]
 
 		return neighbors
 
