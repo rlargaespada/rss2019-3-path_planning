@@ -21,7 +21,7 @@ warnings.simplefilter('ignore', np.RankWarning)
 class PathPlanning:
 	# Access these variables in class functions with self:
 	# i.e. self.CONSTANT
-	PATH_TOPIC = rospy.get_param("~path_topic")
+	#PATH_TOPIC = rospy.get_param("~path_topic")
 	DRIVE_TOPIC = rospy.get_param("~drive_topic")
 	VELOCITY = float(rospy.get_param("~velocity"))  # [m/s]
 	POSITION = rospy.get_param("~position") # (x,y), robot position in map frame
@@ -34,19 +34,19 @@ class PathPlanning:
 		# subscribers here
 		self.sub = rospy.Subscriber(self.PATH_TOPIC, MultiArrayLayout, self.callback, queue_size=10)
 		self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
-		self.trajectory  = utils.LineTrajectory("/followed_trajectory")
-		self.traj_sub = rospy.Subscriber(self.trajectory_topic, PolygonStamped, self.trajectory_callback, queue_size=1)
+		#self.trajectory  = utils.LineTrajectory("/followed_trajectory")
+		#self.traj_sub = rospy.Subscriber(self.trajectory_topic, PolygonStamped, self.trajectory_callback, queue_size=1)
 
 
 	# TODO:
 	# Write your callback functions here.
-	def trajectory_callback(self, msg):
+	#def trajectory_callback(self, msg):
 		''' Clears the currently followed trajectory, and loads the new one from the message
 		'''
-		print "Receiving new trajectory:", len(msg.polygon.points), "points" 
-		self.trajectory.clear()
-		self.trajectory.fromPolygon(msg.polygon)
-		self.trajectory.publish_viz(duration=0.0)
+	#	print "Receiving new trajectory:", len(msg.polygon.points), "points" 
+	#	self.trajectory.clear()
+	#	self.trajectory.fromPolygon(msg.polygon)
+	#	self.trajectory.publish_viz(duration=0.0)
 
 	def callback(self,data):
 		'''
@@ -70,7 +70,14 @@ class PathPlanning:
 
 		'''
 		## data preprocessing
-		data_vec = np.array(data) # (n,2)
+		def conv()
+			d = [{"y": -0.8895988464355469, "x": 0.4171772003173828}, {"y": -0.6701974868774414, "x": -30.42536163330078}, {"y": -0.3597745895385742, "x": -32.4092903137207}, {"y": 0.8645005226135254, "x": -33.037513732910156}, {"y": 30.7249698638916, "x": -33.17718505859375}, {"y": 32.2868766784668, "x": -33.165679931640625}, {"y": 33.415687561035156, "x": -33.283687591552734}, {"y": 33.91817855834961, "x": -32.811187744140625}, {"y": 34.09068298339844, "x": -31.738685607910156}, {"y": 33.959041595458984, "x": -29.598907470703125}, {"y": 33.96776580810547, "x": -0.5014395713806152}, {"y": 34.000389099121094, "x": 0.5176341533660889}, {"y": 33.48455810546875, "x": 1.3077607154846191}, {"y": 32.55713653564453, "x": 1.553515911102295}, {"y": 31.470308303833008, "x": 1.4412281513214111}, {"y": 26.959705352783203, "x": 1.5491182804107666}, {"y": 26.068689346313477, "x": 1.6574804782867432}, {"y": 25.549406051635742, "x": 2.4118423461914062}, {"y": 25.40235137939453, "x": 3.219785213470459}, {"y": 25.483911514282227, "x": 4.841587543487549}, {"y": 25.64862060546875, "x": 6.924839496612549}, {"y": 25.571475982666016, "x": 13.471232414245605}, {"y": 25.419279098510742, "x": 15.124458312988281}, {"y": 24.356502532958984, "x": 16.07210922241211}, {"y": 22.99414825439453, "x": 16.297348022460938}, {"y": 21.70294761657715, "x": 15.853641510009766}, {"y": 20.401371002197266, "x": 14.811742782592773}, {"y": 10.674541473388672, "x": 6.36682653427124}, {"y": 8.482307434082031, "x": 4.451013088226318}, {"y": 6.8183746337890625, "x": 3.0730931758880615}, {"y": 5.353919506072998, "x": 2.6476709842681885}, {"y": 1.4918694496154785, "x": 1.9159927368164062}]
+			a = []
+			for i in d:
+				a.append([i.values()[1],i.values()[0]])
+			return a
+		#data_vec = np.array(data) # (n,2)
+		data_vec = conv()
 		pos_map = np.array([[POSITION[0],POSITION[1]]]) # (1,2)
 
 		d = data_vec-pos_map # (n,2), puts data in robot frame (robot is at (0,0)), splits data into x and y each of length n
