@@ -183,7 +183,7 @@ class RRTstar:
             # Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
 
-            self.create_PointCloud(self.nodes)
+            # self.create_PointCloud(self.nodes)
             if not self.in_collision(new_path):
                 cost = self.get_cost(new_path) + closest.cost
                 # Add node to nodes
@@ -210,7 +210,8 @@ class RRTstar:
         #Create path of poses from the node_path
         self.pose_path = self.plan_pose_path()
         print "Length of path:", len(self.pose_path)
-        self.draw_path(self.pose_path)
+        self.create_PointCloud_from_poses(self.pose_path)
+        # self.draw_path(self.pose_path)
         return self.pose_path
 
     def steer(self, start_node, next_pose):
@@ -351,6 +352,7 @@ class RRTstar:
                         # better path found
                         curr.set_parent(n)
                         curr.set_path(possible_path)
+                        curr.set_cost(possible_cost)
 
         # Check if existing paths can be improved by connecting through current node
         for n_idx in neighbor_idxs:
@@ -358,10 +360,12 @@ class RRTstar:
             if curr.pose != n.pose:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
-                    if n.cost > curr.cost + self.get_cost(possible_path):
+                    possible_cost = self.get_cost(possible_path) + curr.cost
+                    if n.cost > curr.cost + possible_cost:
                         # set parent of neighbor to current node
                         n.set_parent(curr)
                         n.set_path(possible_path)
+                        n.set_cost(possible_cost)
 
     def plan_node_path(self, node):
         """
@@ -397,7 +401,10 @@ class RRTstar:
             cost = self.get_cost(path)
             if cost + grandparent.cost < node.cost and cost < 2 * self.neighbor_radius:
                 # print("CONNECT WITH YOUR ROOTS")
-                node.parent = grandparent
+                node.set_parent(grandparent)
+                node.set_path(path)
+                node.set_cost(cost)
+                
 
     def create_PointCloud(self, nodes):
         '''
@@ -408,6 +415,18 @@ class RRTstar:
         for node in range(len(nodes)):
             self.cloud.points[node].x = nodes[node].pose[0]
             self.cloud.points[node].y = nodes[node].pose[1]
+            self.cloud.points[node].z = 0
+        self.particle_cloud_publisher.publish(self.cloud)
+
+    def create_PointCloud_from_poses(self, nodes):
+        '''
+        Create and publish point cloud of particles and current pose marker
+        '''
+        self.cloud.header.frame_id = "/map"
+        self.cloud.points = [Point32() for i in range(len(nodes))]
+        for node in range(len(nodes)):
+            self.cloud.points[node].x = nodes[node][0]
+            self.cloud.points[node].y = nodes[node][1]
             self.cloud.points[node].z = 0
         self.particle_cloud_publisher.publish(self.cloud)
 
@@ -463,6 +482,9 @@ class Node:
 
     def set_path(self, path):
         self.path = path
+
+    def set_cost(self, cost):
+        self.cost = cost
 
 
 if __name__ == "__main__":
