@@ -14,7 +14,7 @@ import tf
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32, PoseWithCovarianceStamped, PoseStamped, Pose, Quaternion, Point
 from nav_msgs.msg import Path
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Float32MultiArray, MultiArrayLayout, MultiArrayDimension
 import scipy.misc
 import matplotlib.pyplot as plt
 
@@ -43,6 +43,7 @@ class RRTstar:
         self.map_name = rospy.get_param("~map")
         self.origin_x_offset = rospy.get_param("~origin_x_offset")
         self.origin_y_offset = rospy.get_param("~origin_y_offset")
+        self.POSE_PATH_TOPIC = rospy.get_param("~path_send_topic")
 
         #Initialize visualization varibles
         self.cloud = PointCloud()
@@ -66,7 +67,7 @@ class RRTstar:
         # initialize publishers and subscribers
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
         self.path_publisher = rospy.Publisher(self.PATH_TOPIC, Path, queue_size=10)
-
+        self.pose_path_pub = rospy.Publisher(self.POSE_PATH_TOPIC, Float32MultiArray, queue_size=10)
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
         rospy.Subscriber(self.GOAL_TOPIC, PoseStamped, self.set_goal)
 
@@ -216,8 +217,10 @@ class RRTstar:
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
         self.pose_path = self.plan_pose_path()
+        self.create_PointCloud_pose(self.pose_path)
         print "Length of path:", len(self.pose_path)
         self.draw_path(self.pose_path)
+        self.send_multi_array(self.pose_path)
         return self.pose_path
 
     def steer(self, start_node, next_pose):
@@ -373,6 +376,7 @@ class RRTstar:
                         # better path found
                         curr.set_parent(n)
                         curr.set_path(possible_path)
+                        curr.set_cost(possible_cost)
 
         # Check if existing paths can be improved by connecting through current node
         for n_idx in neighbor_idxs:
@@ -380,10 +384,12 @@ class RRTstar:
             if curr.pose != n.pose:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
-                    if n.cost > curr.cost + self.get_cost(possible_path):
+                    possible_cost = self.get_cost(possible_path) + curr.cost
+                    if n.cost > curr.cost + possible_cost:
                         # set parent of neighbor to current node
                         n.set_parent(curr)
                         n.set_path(possible_path)
+                        n.set_cost(possible_cost)
 
     def plan_node_path(self, node):
         """
@@ -420,6 +426,7 @@ class RRTstar:
             if cost + grandparent.cost < node.cost and cost < 2 * self.neighbor_radius:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.parent = grandparent
+                node.path = path
 
     def create_PointCloud(self, nodes):
         '''
@@ -430,6 +437,18 @@ class RRTstar:
         for node in range(len(nodes)):
             self.cloud.points[node].x = nodes[node].pose[0]
             self.cloud.points[node].y = nodes[node].pose[1]
+            self.cloud.points[node].z = 0
+        self.particle_cloud_publisher.publish(self.cloud)
+
+    def create_PointCloud_pose(self, nodes):
+        '''
+        Create and publish point cloud of particles and current pose marker
+        '''
+        self.cloud.header.frame_id = "/map"
+        self.cloud.points = [Point32() for i in range(len(nodes))]
+        for node in range(len(nodes)):
+            self.cloud.points[node].x = nodes[node][0]
+            self.cloud.points[node].y = nodes[node][1]
             self.cloud.points[node].z = 0
         self.particle_cloud_publisher.publish(self.cloud)
 
@@ -465,6 +484,20 @@ class RRTstar:
             theta = theta - 2*np.pi
         return theta
 
+    def send_multi_array(self, pose_path):
+        array = Float32MultiArray()
+        array.layout.dim.append(MultiArrayDimension())
+        array.layout.dim.append(MultiArrayDimension())
+        array.layout.dim[0].label = "Points"
+        array.layout.dim[1].label = "Pose"
+        array.layout.dim[0].size = len(pose_path)
+        array.layout.dim[1].size = 2
+        array.layout.dim[0].stride = len(pose_path)*2
+        array.layout.dim[1].stride = 2
+        
+        array.data = [[pose[0], pose[1]] for pose in pose_path]
+        self.pose_path_pub.publish(array)
+
 class Node:
     """
     RRT graph node
@@ -485,6 +518,9 @@ class Node:
 
     def set_path(self, path):
         self.path = path
+
+    def set_cost(self, cost):
+        self.costs = cost
 
 
 if __name__ == "__main__":
