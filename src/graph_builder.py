@@ -11,10 +11,11 @@ from std_msgs.msg import Header
 import scipy.misc
 import matplotlib.pyplot as plt
 import graph
+import search.py
 
 class search_algorithm:
     """
-    RRT* with path smoothing
+    A* path planning from ROS map
     """
     def __init__(self):
         """
@@ -52,10 +53,9 @@ class search_algorithm:
         # self.counter = 0
 
         # initilize graph structure (start insertion in set_start)
-        self.current = [0, 0, 0]
-        self.nodes = []
-        self.tree = index.Index() # R-Tree for querying neighbors
-        self.end_node = None
+        # self.current = [0, 0, 0]
+        # self.nodes = []
+        # self.tree = index.Index() # R-Tree for querying neighbors
 
         self.map_loaded = False
         self.map_graph = None
@@ -74,6 +74,28 @@ class search_algorithm:
                 self.map_callback,
                 queue_size=1)
 
+    def set_start(self, start_pose):
+        """
+        Gets starting pose from rviz pose estimate marker.
+        """
+        x, y = start_pose.pose.pose.position.x, start_pose.pose.pose.position.y
+        theta = 2*np.arctan(start_pose.pose.pose.orientation.z/start_pose.pose.pose.orientation.w)
+
+        self.start_pose = [x, y, theta]
+
+    def set_goal(self, goal_pose):
+        """
+        Gets goal pose from rviz nav goal marker.
+        """
+        x, y = goal_pose.pose.position.x, goal_pose.pose.position.y
+
+        self.goal_pose = [x, y, 0]
+        r = self.goal_size/2
+
+        self.goal_region["xmin"] = x-r
+        self.goal_region["xmax"] = x+r
+        self.goal_region["ymin"] = y-r
+        self.goal_region["ymax"] = y+r
 
     def map_callback(self, map_msg):
         # while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
@@ -126,7 +148,7 @@ class search_algorithm:
             self.map_flip_const = 1.
 
         #map is an array of zeros and ones, convert into graph
-        self.map_graph = Graph()
+        self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
         self.map_graph.build_map(self.map)
         
         #convert map so that large empty cells are consolidated
@@ -134,3 +156,5 @@ class search_algorithm:
 
 
         self.map_loaded = True
+
+        point_path = search.a_star(self.map_graph, self.start_node, self.end_node)

@@ -16,16 +16,14 @@ def a_star(graph, start, goal):
 		if current == goal:
 			break
 
-		neighbors = graph.edges[current] # list of edges
-		for edge in neighbors:
-			n = edge.end
-			new_cost = current_cost[current] + edge.cost
+		for n in graph.neighbors[current]:
+			new_cost = current_cost[current] + graph.cost(current,n)
 			if n not in current_cost or new_cost<current_cost[n]:
 				current_cost[n] = new_cost
-				priority = new_cost + graph.heuristic(goal, n)
+				priority = new_cost + graph.heuristic(n)
 				frontier = queue_insert(frontier, n, priority)
-
 				came_from[n] = current
+
 	return process_astar(came_from, start, goal)
 
 
@@ -41,7 +39,7 @@ def process_astar(came_from, start, goal):
 	points = []
 	node = goal
 	while node!=start:
-		points.append([node.x, node.y])
+		points.append(node)
 		node = came_from[node]
-	points.append([start.x, start.y])
+	points.append(start)
 	return points[::-1]

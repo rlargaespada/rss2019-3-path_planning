@@ -1,44 +1,44 @@
 from math import floor
 
-class Node(object):
-	def __init__(self,x,y, val=0):
-		self.position = (x,y)
-		self.value = val
+# class Node(object):
+# 	def __init__(self,x,y, val=0):
+# 		self.position = (x,y)
+# 		self.value = val
 
-class Dimensioned_Node(Node):
-	#dimensions should be odd numbers
-	def __init__(self, x, y, val, dim):
-		Node.__init__(self, x, y, val)
-		self.dim = dim
-		b = floor(dim/2)
-		self.bounds = {(self.position[0]-b, self.position[1]-b), (self.position[0]-b, self.position[1]+b),
-						(self.position[0]+b, self.position[1]-b), (self.position[0]+b, self.position[1]+b)}
-
-class Edge(object):
-	def __init__(self, start, end, cost=1):
-		self.start = start
-		self.end = end
-		self.cost = cost
-
+# class Dimensioned_Node(Node):
+# 	#dimensions should be odd numbers
+# 	def __init__(self, x, y, val, dim):
+# 		Node.__init__(self, x, y, val)
+# 		self.dim = dim
+# 		b = floor(dim/2)
+# 		self.bounds = {(self.position[0]-b, self.position[1]-b), (self.position[0]-b, self.position[1]+b),
+# 						(self.position[0]+b, self.position[1]-b), (self.position[0]+b, self.position[1]+b)}
 
 class Graph(object):
-	def __init__(self):
+	def __init__(self, start, goal):
 		self.nodes = set()
-		self.edges = {} # dict of node mapped to edges
+		self.neighbors = {} # dict of node mapped to edges
+		self.start = start
+		self.goal = goal
+
+	def cost(self, p1, p2):
+		return ((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)**(0.5)
 
 	def add_node(self, node):
+		if node in nodes:
+			return
 		self.nodes.add(node)
-		self.edges[node] = []
+		self.neighbors[node] = []
 
-	def add_edge(self, edge):
-		self.edges[edge.start].append(edge)
+	def add_edge(self, node1, node2):
+		self.neighbors[node1].append(node2)
 
 	def __str__(self):
 		p = dict()
 		for node in self.nodes:
-			p[node.position] = []
-			for edge in self.edges[node]:
-				p[node.position].append(edge.end.position)
+			p[node] = []
+			for n in self.neighbors[node]:
+				p[node].append(n)
 		for node in p:
 			print(node, ':', p[node])
 
@@ -61,12 +61,13 @@ class Graph(object):
 		for x in range(x_max):
 			for y in range(y_max):
 				if map[x,y] != 1:
-					pos = Node(x, y, map[x, y])
+					pos = (x,y)
 					self.add_node(pos)
 					for coord in self.get_neighbor_coords(pos):
 						if 0 <= coord[0] <= x_max and 0 <= coord[1] <= y_max:
-							ed = Edge(pos, Node(coord[0], coord[1],map[x, y]))
-							self.add_edge(ed)
+							self.add_node(coord)
+							self.add_edge(pos, coord)
+
 							
 	def build_consolidated_map(self, map):
 		x_max = map.shape[0]
@@ -94,9 +95,9 @@ class Graph(object):
 		#open speces next to those should be large size squares
 
 
-	def heuristic(self, node1, node2):
-		point1 = node1.position
-		point2 = node2.position
+	def heuristic(self, node1):
+		point1 = node1
+		point2 = self.goal
 		return ((point1[0]-point2[0])**2+(point1[1]-point2[1])**2)**(0.5)
 
 class Consolidated_Graph(Graph):
