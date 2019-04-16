@@ -1,8 +1,7 @@
 #!/usr/bin/env python2
 """
     RSS 2019 | rrt.py
-    Implementation of RRT* (Rapidly exploring Random Trees) using Dubin
-    steering.
+    Implementation of RRT* (Rapidly exploring Random Trees) with path smoothing
 
     Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (alexcuel@mit.edu)
 """
@@ -165,18 +164,25 @@ class RRTstar:
             # If our current node is in the goal, break
             self.counter += 1
             if self.in_goal(self.current) and already_found == False:
+                print "FOUND GOAL IN", self.counter, "STEPS."
                 path_to_goal = self.create_path(self.current, self.goal_pose)
                 cost = self.get_cost(path_to_goal)
+
                 # Save first node found inside goal region
                 self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
                 self.nodes.append(self.end_node)
-                print "FOUND GOAL IN", self.counter, "STEPS."
+                self.node_path = self.plan_node_path(self.end_node)
+
                 # break
                 self.max_iter = 1.5*self.counter # run for 1.5 the amount of time it took to find goal in order to optimize
                 already_found = True
                 self.epsilon = 1.0 # turn off goal biasing
             # Get a random pose sample
-            next_pose = self.get_next()
+            if not already_found:
+                next_pose = self.get_next()
+            else:
+                # draw samples along path to goal
+                next_pose = self.optimize_path_next()
             #Get the closest node to our sample
             closest = self.find_nearest_node(next_pose)
             #Get actual pose for node
@@ -264,6 +270,21 @@ class RRTstar:
             return new
         else:
             return self.get_next()
+
+    def optimize_path_next(self):
+        """
+        Input: None
+        Output: next pose to steer towards from near the path
+        """
+        # select a random point along the current path to goal
+        rand_idx = np.random.randint(len(self.node_path))
+        x, y, theta = tuple(self.node_path[rand_idx].pose)
+        nr = 1.5 * self.neighbor_radius
+
+        rand_x = np.random.uniform(x-nr, x+nr)
+        rand_y = np.random.uniform(y-nr, y+nr)
+
+        return (rand_x, rand_y)
 
     def in_collision(self, path):
         """
@@ -400,21 +421,6 @@ class RRTstar:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.parent = grandparent
 
-    def optimize_path_next(self, path):
-        """
-        Input: list of Nodes representing a path
-        Output: next pose to steer towards from near the path
-        """
-        # select a random point along the path
-        rand_idx = np.random.randint(len(path))
-        x, y = tuple(path[rand_idx].pose)
-        nr = self.neighbor_radius
-
-        rand_x = np.random.uniform(x-nr, x+nr)
-        rand_y = np.random.uniform(y-nr, y+nr)
-
-        return (rand_x, rand_y)
-
     def create_PointCloud(self, nodes):
         '''
         Create and publish point cloud of particles and current pose marker
@@ -473,12 +479,6 @@ class Node:
 
         self.id = Node.id # self.id = index in RRT.nodes in RRT class
         Node.id += 1
-
-    # def add_to_path(self, pose):
-    #     """
-    #     Adds a pose to path generated from Dubin steering
-    #     """
-    #     self.path.append(pose)
 
     def set_parent(self, parent):
         self.parent = parent
