@@ -1,8 +1,7 @@
 #!/usr/bin/env python2
 """
     RSS 2019 | rrt.py
-    Implementation of RRT* (Rapidly exploring Random Trees) using Dubin
-    steering.
+    Implementation of RRT* (Rapidly exploring Random Trees) with path smoothing
 
     Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (alexcuel@mit.edu)
 """
@@ -458,12 +457,6 @@ class Node:
 
         self.id = Node.id # self.id = index in RRT.nodes in RRT class
         Node.id += 1
-
-    # def add_to_path(self, pose):
-    #     """
-    #     Adds a pose to path generated from Dubin steering
-    #     """
-    #     self.path.append(pose)
 
     def set_parent(self, parent):
         self.parent = parent
