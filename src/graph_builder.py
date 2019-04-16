@@ -152,9 +152,7 @@ class search_algorithm:
         self.map_graph.build_map(self.map)
         
         #convert map so that large empty cells are consolidated
-        
-
 
         self.map_loaded = True
 
-        point_path = search.a_star(self.map_graph, self.start_node, self.end_node)
+        point_path = search.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
