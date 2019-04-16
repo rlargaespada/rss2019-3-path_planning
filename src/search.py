@@ -1,12 +1,9 @@
 # Using A* algorithm searches graph made in graph_builder.py to find
 # shortest path from starting position to ending position
 
-start = "starting node in graph"
-goal = "ending node in graph"
-graph = "whatever data structure we are using for graph"
-
 
 def a_star(graph, start, goal):
+	''' Algorithm ends with a dictionary mapping nodes to their parent nodes'''
 	frontier = []
 	frontier.append((start,0)) # frontier consists of nodes 
 	came_from = {}
@@ -29,6 +26,7 @@ def a_star(graph, start, goal):
 				frontier = queue_insert(frontier, n, priority)
 
 				came_from[n] = current
+	return process_astar(came_from, start, goal)
 
 
 def queue_insert(queue, node, weight):
@@ -38,3 +36,12 @@ def queue_insert(queue, node, weight):
 		for i in range(len(queue)):
 			if queue[i][1]>weight:
 				return queue[:i] + weight + queue[i:]
+
+def process_astar(came_from, start, goal):
+	points = []
+	node = goal
+	while node!=start:
+		points.append([node.x, node.y])
+		node = came_from[node]
+	points.append([start.x, start.y])
+	return points[::-1]
