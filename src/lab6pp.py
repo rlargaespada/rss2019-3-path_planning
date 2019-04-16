@@ -83,7 +83,7 @@ class PathPlanning:
 
 		dists = np.sqrt(np.einsum('ij,ij->i',d,d)) #list of distances from car to waypoint
 		i = np.argmin(dists) #index of closest waypoint
-		path_remaining = d[i:,i:] #cuts off prior waypoints already passed
+		path_remaining = d[i:,:] #cuts off prior waypoints already passed
 		dists_remaining = dists[i:]
 
 		#combined proportional-pure persuit controller with Ackermann steering
