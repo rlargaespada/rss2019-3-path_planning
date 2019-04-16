@@ -183,7 +183,7 @@ class RRTstar:
             # Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
 
-            # self.create_PointCloud(self.nodes)
+            self.create_PointCloud(self.nodes)
             if not self.in_collision(new_path):
                 cost = self.get_cost(new_path) + closest.cost
                 # Add node to nodes
@@ -399,7 +399,7 @@ class RRTstar:
         path = self.create_path(grandparent, node.pose)
         if not self.in_collision(path):
             cost = self.get_cost(path)
-            if cost + grandparent.cost < node.cost and cost < 2 * self.neighbor_radius:
+            if cost + grandparent.cost < node.cost and cost < 6 * self.neighbor_radius:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.set_parent(grandparent)
                 node.set_path(path)
