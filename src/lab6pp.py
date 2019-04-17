@@ -13,6 +13,7 @@ from ackermann_msgs.msg import AckermannDriveStamped
 import utils
 from geometry_msgs.msg import PolygonStamped, Point32
 from visualization_msgs.msg import Marker
+from nav_msgs.msg import Path
 import numpy as np
 import warnings
 
@@ -37,7 +38,7 @@ class PathPlanning:
 		#self.start_sub = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped, self.set_start)
 		self.POSITION = rospy.Subscriber(self.local_topic,Point32,queue_size=10)
 		self.POSE = []
-		self.sub = rospy.Subscriber(self.PATH_TOPIC, MultiArrayLayout, self.callback, queue_size=10)
+		self.sub = rospy.Subscriber(self.PATH_TOPIC, Path, self.callback, queue_size=10)
 		self.pos_sub = rospy.Subscriber(self.POS_TOPIC, Marker, self.pose_callback, queue_size=10)
 		self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
 		#self.trajectory  = utils.LineTrajectory("/followed_trajectory")
@@ -54,7 +55,7 @@ class PathPlanning:
 	#	self.trajectory.fromPolygon(msg.polygon)
 	#	self.trajectory.publish_viz(duration=0.0)
 
-	def callback(self,data):
+	def callback(self,path_info):
 		'''
 		main functionality of node
 		inputs trajectory data and outputs control action u
@@ -82,7 +83,8 @@ class PathPlanning:
 			for i in d:
 				a.append([i.values()[1],i.values()[0]])
 			return a
-		#data_vec = np.array(data) # (n,2)
+		# data = [[pose_stamped.pose.position.x, pose_stamped.pose.position.y] for pose_stamped in path_info.poses]
+		#data_ved = np.array(data)
 		data_vec = conv()
 		pos_map = np.array([[self.POSITION[0],self.POSITION[1]]]) # (1,2)
 
