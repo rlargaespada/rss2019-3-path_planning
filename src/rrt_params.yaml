@@ -7,7 +7,7 @@ origin_y_offset: -0.5
 # rrt* algorithm parameters
 epsilon: 0.8 # sample from goal region with probability 1-epsilon
 max_iter: 10000 # cap size of graph
-neighbor_radius: 1.5 # number of nearest neighbors to check for rewiring
+neighbor_radius: 2.0 # number of nearest neighbors to check for rewiring
 d: 0.5 # [meters] distance to travel during steering.
 turning_radius: 1.0 #turning radius of racecar
 path_step: .05 #distance between each step on a path
@@ -20,6 +20,7 @@ map: "stata_basement" #name of map being used
 traj_topic: "/rrt_traj"
 map_topic: "/map"
 particle_cloud: "/particle_cloud"
+tree_topic: "/rrt_tree"
 start_topic: "/initialpose"
 goal_topic: "/move_base_simple/goal"
 path_topic: "/path"

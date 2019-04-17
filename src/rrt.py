@@ -13,8 +13,10 @@ import dubins
 import tf
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32, PoseWithCovarianceStamped, PoseStamped, Pose, Quaternion, Point
+from visualization_msgs.msg import Marker, MarkerArray
 from nav_msgs.msg import Path
-from std_msgs.msg import Header, Float32MultiArray, MultiArrayLayout, MultiArrayDimension
+from lab6.msg import PathData
+
 import scipy.misc
 import matplotlib.pyplot as plt
 
@@ -38,6 +40,7 @@ class RRTstar:
         self.map_res = rospy.get_param("~map_res")
         self.max_angle = rospy.get_param("~max_angle")
         self.PARTICLE_CLOUD_TOPIC = rospy.get_param("~particle_cloud")
+        self.TREE_TOPIC = rospy.get_param("~tree_topic")
         self.PATH_TOPIC = rospy.get_param("~path_topic")
         self.base_link = rospy.get_param("~base_link")
         self.map_name = rospy.get_param("~map")
@@ -47,6 +50,7 @@ class RRTstar:
 
         #Initialize visualization varibles
         self.cloud = PointCloud()
+        self.vis_tree = Marker()
 
         # initialize algorithm parameters
         self.max_iter = rospy.get_param("~max_iter")
@@ -66,8 +70,9 @@ class RRTstar:
 
         # initialize publishers and subscribers
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
+        self.tree_pub = rospy.Publisher(self.TREE_TOPIC, Marker, queue_size=10)
         self.path_publisher = rospy.Publisher(self.PATH_TOPIC, Path, queue_size=10)
-        self.pose_path_pub = rospy.Publisher(self.POSE_PATH_TOPIC, Float32MultiArray, queue_size=10)
+        # self.pose_path_pub = rospy.Publisher(self.POSE_PATH_TOPIC, Float32MultiArray, queue_size=10)
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
         rospy.Subscriber(self.GOAL_TOPIC, PoseStamped, self.set_goal)
 
@@ -167,23 +172,26 @@ class RRTstar:
             if self.in_goal(self.current) and already_found == False:
                 print "FOUND GOAL IN", self.counter, "STEPS."
                 path_to_goal = self.create_path(self.current, self.goal_pose)
-                cost = self.get_cost(path_to_goal)
+                cost = self.get_cost(path_to_goal) + self.current.cost
 
                 # Save first node found inside goal region
                 self.end_node = Node(self.goal_pose, self.current, path_to_goal, cost)
                 self.nodes.append(self.end_node)
                 self.node_path = self.plan_node_path(self.end_node)
 
-                # break
                 self.max_iter = 1.5*self.counter # run for 1.5 the amount of time it took to find goal in order to optimize
                 already_found = True
-                self.epsilon = 1.0 # turn off goal biasing
+
             # Get a random pose sample
             if not already_found:
                 next_pose = self.get_next()
             else:
                 # draw samples along path to goal
                 next_pose = self.optimize_path_next()
+                #Create path of poses from the node_path
+                self.node_path = self.plan_node_path(self.end_node)
+                self.pose_path = self.plan_pose_path()
+                self.create_PointCloud_pose(self.pose_path)
             #Get the closest node to our sample
             closest = self.find_nearest_node(next_pose)
             #Get actual pose for node
@@ -191,7 +199,8 @@ class RRTstar:
             # Get path from dubin. Note this is discretized as units of length
             new_path = self.create_path(closest, new_pose)
 
-            self.create_PointCloud(self.nodes)
+            # self.create_PointCloud(self.nodes)
+            self.create_vistree()
             if not self.in_collision(new_path):
                 cost = self.get_cost(new_path) + closest.cost
                 # Add node to nodes
@@ -385,7 +394,7 @@ class RRTstar:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
                     possible_cost = self.get_cost(possible_path) + curr.cost
-                    if n.cost > curr.cost + possible_cost:
+                    if possible_cost < n.cost:
                         # set parent of neighbor to current node
                         n.set_parent(curr)
                         n.set_path(possible_path)
@@ -425,7 +434,7 @@ class RRTstar:
             cost = self.get_cost(path)
             if cost + grandparent.cost < node.cost and cost < 2 * self.neighbor_radius:
                 # print("CONNECT WITH YOUR ROOTS")
-                node.parent = grandparent
+                node.set_parent(grandparent)
                 node.path = path
 
     def create_PointCloud(self, nodes):
@@ -451,6 +460,28 @@ class RRTstar:
             self.cloud.points[node].y = nodes[node][1]
             self.cloud.points[node].z = 0
         self.particle_cloud_publisher.publish(self.cloud)
+
+    def create_vistree(self):
+        """
+        Create and publish a Marker object representing the tree
+        """
+        # Setup header
+        self.vis_tree.header.frame_id = "/map"
+        self.vis_tree.header.stamp = rospy.Time.now()
+        self.vis_tree.ns = "rrt_tree"
+        self.vis_tree.id = 0
+        self.vis_tree.type = 5 # line list
+
+        # Set visualization params
+        self.vis_tree.scale.x = 0.05
+        self.vis_tree.color.b = 1.0
+        self.vis_tree.color.a = 1.0
+
+        self.vis_tree.points = []
+        for node in self.nodes:
+            self.vis_tree.points += node.line
+
+        self.tree_pub.publish(self.vis_tree)
 
     def draw_path(self, pos_path):
         header = Header()
@@ -494,7 +525,7 @@ class RRTstar:
         array.layout.dim[1].size = 2
         array.layout.dim[0].stride = len(pose_path)*2
         array.layout.dim[1].stride = 2
-        
+
         array.data = [[pose[0], pose[1]] for pose in pose_path]
         self.pose_path_pub.publish(array)
 
@@ -511,10 +542,14 @@ class Node:
         self.cost = cost # distance to source along edges
 
         self.id = Node.id # self.id = index in RRT.nodes in RRT class
+        self.line = [Point32(), Point32()]
+        self.create_marker()
         Node.id += 1
 
     def set_parent(self, parent):
+        # print "Resetting parent of Node", self.id
         self.parent = parent
+        self.create_marker()
 
     def set_path(self, path):
         self.path = path
@@ -522,6 +557,20 @@ class Node:
     def set_cost(self, cost):
         self.costs = cost
 
+    def create_marker(self):
+        """
+        Creates a Marker message from self to parent. Regenerates everytime
+        parent is reset.
+        """
+        if self.parent is not None:
+            # Define points
+            self.line[0].x = self.parent.pose[0]
+            self.line[0].y = self.parent.pose[1]
+            self.line[0].z = 0
+
+            self.line[1].x = self.pose[0]
+            self.line[1].y = self.pose[1]
+            self.line[1].z = 0
 
 if __name__ == "__main__":
     rospy.init_node("rrt")
