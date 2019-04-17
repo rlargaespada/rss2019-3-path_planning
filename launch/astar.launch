@@ -1,0 +1,9 @@
+<launch>
+  <!-- Launch the racecar simulator -->
+  <include file="$(find racecar_simulator)/launch/simulate.launch"/>
+  
+  <!-- Begin astar for path planning -->
+  <node pkg="lab6" type="graph_builder.py" name="astar" output="screen">
+    <rosparam command="load" file="$(find lab6)/src/astar_params.yaml"/>
+  </node>
+</launch>

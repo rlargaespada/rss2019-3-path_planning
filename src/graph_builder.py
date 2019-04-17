@@ -42,20 +42,8 @@ class search_algorithm:
         #Initialize visualization varibles
         self.cloud = PointCloud()
 
-        # initialize algorithm parameters
-        # self.max_iter = rospy.get_param("~max_iter")
-        # self.epsilon = rospy.get_param("~epsilon")
-        # self.neighbor_radius = rospy.get_param("~neighbor_radius")
-        # self.d = rospy.get_param("~d")
-        # self.turning_radius = rospy.get_param("~turning_radius")
-        # self.path_step = rospy.get_param("~path_step")
-        # self.buff_factor = rospy.get_param("~buff_map")
-        # self.counter = 0
+        self.path = []
 
-        # initilize graph structure (start insertion in set_start)
-        # self.current = [0, 0, 0]
-        # self.nodes = []
-        # self.tree = index.Index() # R-Tree for querying neighbors
 
         self.map_loaded = False
         self.map_graph = None
@@ -155,4 +143,44 @@ class search_algorithm:
 
         self.map_loaded = True
 
-        point_path = search.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
+        self.path = search.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
+        self.create_PointCloud()
+        self.draw_path()
+
+    def create_PointCloud(self):
+        '''
+        Create and publish point cloud of particles and current pose marker
+        '''
+        self.cloud.header.frame_id = "/map"
+        self.cloud.points = [Point32() for i in range(len(self.path))]
+        for p in range(len(self.path)):
+            self.cloud.points[p].x = self.path[p][0]
+            self.cloud.points[p].y = self.path[p][1]
+            self.cloud.points[p].z = 0
+        self.particle_cloud_publisher.publish(self.cloud)
+
+    def draw_path(self, pos_path):
+        header = Header()
+        path = Path()
+        header.stamp = rospy.rostime.Time.now()
+        header.frame_id = "/map"
+        pose_stamp = PoseStamped()
+        pose_stamp.header = header
+        for pos in pos_path:
+            point = Point()
+            point.x = pos[0]
+            point.y = pos[1]
+            point.z = pos[2]
+            orient = Quaternion()
+            quat = tf.transformations.quaternion_from_euler(0, 0,pos[2])
+            orient.x = quat[0]
+            orient.y = quat[1]
+            orient.z = quat[2]
+            orient.w = quat[3]
+            pose = Pose()
+            pose.position = point
+            pose.orientation = orient
+            pose_stamp.pose = pose
+            path.poses.append(pose_stamp)
+        path.header = pose_stamp.header
+        self.path_publisher.publish(path)
