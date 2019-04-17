@@ -55,7 +55,8 @@ class PathPlanning:
 	#	self.trajectory.fromPolygon(msg.polygon)
 	#	self.trajectory.publish_viz(duration=0.0)
 
-	def callback(self,path_info):
+	#def callback(self,path_info):
+	def callback(self):
 		'''
 		main functionality of node
 		inputs trajectory data and outputs control action u
@@ -181,4 +182,5 @@ class PathPlanning:
 if __name__ == "__main__":
 	rospy.init_node("path_planning")
 	path_planning = PathPlanning()
+	path_planning.callback()
 	rospy.spin()
