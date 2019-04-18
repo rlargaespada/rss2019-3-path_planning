@@ -14,6 +14,7 @@ import tf
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32, PoseWithCovarianceStamped, PoseStamped, Pose, Quaternion, Point
 from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import Header
 from nav_msgs.msg import Path
 from lab6.msg import PathData
 
@@ -61,12 +62,15 @@ class RRTstar:
         self.path_step = rospy.get_param("~path_step")
         self.buff_factor = rospy.get_param("~buff_map")
         self.counter = 0
+        self.NUM_GOAL_REGIONS = rospy.get_param("~num_goal_regions")
 
         # initilize graph structure (start insertion in set_start)
-        self.current = [0, 0, 0]
-        self.nodes = []
-        self.tree = index.Index() # R-Tree for querying neighbors
-        self.end_node = None
+        # self.current = [0, 0, 0]
+        # self.nodes = []
+        # self.tree = index.Index() # R-Tree for querying neighbors
+        # self.end_node = None
+        self.goal_poses = []
+        self.goal_regions = []
 
         # initialize publishers and subscribers
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
@@ -90,11 +94,11 @@ class RRTstar:
         theta = 2*np.arctan(start_pose.pose.pose.orientation.z/start_pose.pose.pose.orientation.w)
 
         self.start_pose = [x, y, theta]
-        start_node = Node(self.start_pose)
+        # start_node = Node(self.start_pose)
 
-        self.current = start_node
-        self.nodes.append(start_node)
-        self.tree_insert(start_node)
+        # self.current = start_node
+        # self.nodes.append(start_node)
+        # self.tree_insert(start_node)
 
     def set_goal(self, goal_pose):
         """
@@ -102,18 +106,20 @@ class RRTstar:
         """
         x, y = goal_pose.pose.position.x, goal_pose.pose.position.y
 
-        self.goal_pose = [x, y, 0]
+        self.goal_poses.append([x, y, 0])
         r = self.goal_size/2
-
-        self.goal_region["xmin"] = x-r
-        self.goal_region["xmax"] = x+r
-        self.goal_region["ymin"] = y-r
-        self.goal_region["ymax"] = y+r
+        goal_region = {}
+        goal_region["xmin"] = x-r
+        goal_region["xmax"] = x+r
+        goal_region["ymin"] = y-r
+        goal_region["ymax"] = y+r
+        self.goal_regions.append(goal_region)
 
     def map_callback(self, map_msg):
-        while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
+        while self.start_pose == [0, 0, 0] or len(self.goal_regions) < self.NUM_GOAL_REGIONS:
             continue
-
+        self.checkpoints = [self.start_pose] + self.goal_poses
+        print(self.checkpoints)
         print "Loading map:", rospy.get_param("~map"), "..."
         print "Start and Goal intialized:"
         print "Start: ", self.start_pose
@@ -157,7 +163,21 @@ class RRTstar:
                                 }
             self.map_flip_const = 1.
 
-        self.run_rrt()
+        self.full_pose_path = []
+        for checkpoint in range(self.NUM_GOAL_REGIONS):
+            self.start_pose = self.checkpoints[checkpoint]
+            self.start_node = Node(self.start_pose)
+            self.goal_pose = self.checkpoints[checkpoint + 1]
+            self.goal_region = self.goal_regions[checkpoint]
+            self.counter = 0
+            self.nodes = []
+            self.tree = index.Index()
+            self.end_node = None
+            self.current = self.start_node
+            self.nodes.append(self.start_node)
+            self.tree_insert(self.start_node)
+            next_path = self.run_rrt()
+            self.full_pose_path.extend(self.full_pose_path)
 
     def run_rrt(self):
         '''
@@ -229,7 +249,7 @@ class RRTstar:
         self.create_PointCloud_pose(self.pose_path)
         print "Length of path:", len(self.pose_path)
         self.draw_path(self.pose_path)
-        self.send_multi_array(self.pose_path)
+        # self.send_multi_array(self.pose_path)
         return self.pose_path
 
     def steer(self, start_node, next_pose):
@@ -332,7 +352,7 @@ class RRTstar:
         x, y = pose[0], pose[1]
         # return two nearest because first nearest will always be itself
         nearest = list(self.tree.nearest((x, y, x, y), 2))
-
+        print(nearest)
         nearest_neighbor = self.nodes[nearest[-1]] # get node item from node list
         return nearest_neighbor
 
@@ -515,19 +535,19 @@ class RRTstar:
             theta = theta - 2*np.pi
         return theta
 
-    def send_multi_array(self, pose_path):
-        array = Float32MultiArray()
-        array.layout.dim.append(MultiArrayDimension())
-        array.layout.dim.append(MultiArrayDimension())
-        array.layout.dim[0].label = "Points"
-        array.layout.dim[1].label = "Pose"
-        array.layout.dim[0].size = len(pose_path)
-        array.layout.dim[1].size = 2
-        array.layout.dim[0].stride = len(pose_path)*2
-        array.layout.dim[1].stride = 2
+    # def send_multi_array(self, pose_path):
+    #     array = Float32MultiArray()
+    #     array.layout.dim.append(MultiArrayDimension())
+    #     array.layout.dim.append(MultiArrayDimension())
+    #     array.layout.dim[0].label = "Points"
+    #     array.layout.dim[1].label = "Pose"
+    #     array.layout.dim[0].size = len(pose_path)
+    #     array.layout.dim[1].size = 2
+    #     array.layout.dim[0].stride = len(pose_path)*2
+    #     array.layout.dim[1].stride = 2
 
-        array.data = [[pose[0], pose[1]] for pose in pose_path]
-        self.pose_path_pub.publish(array)
+    #     array.data = [[pose[0], pose[1]] for pose in pose_path]
+    #     self.pose_path_pub.publish(array)
 
 class Node:
     """
