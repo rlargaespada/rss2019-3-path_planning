@@ -22,10 +22,10 @@ warnings.simplefilter('ignore', np.RankWarning)
 class PathPlanning:
 	# Access these variables in class functions with self:
 	# i.e. self.CONSTANT
-	PATH_TOPIC = rospy.get_param("~path_topic")
-	DRIVE_TOPIC = rospy.get_param("~drive_topic")
-	VELOCITY = float(rospy.get_param("~velocity"))  # [m/s]
-	POSE_TOPIC = rospy.get_param("~pose_topic")
+	PATH_TOPIC = rospy.get_param("/Trajectory_follower/path_topic")
+	DRIVE_TOPIC = rospy.get_param("/Trajectory_follower/drive_topic")
+	VELOCITY = float(rospy.get_param("/Trajectory_follower/velocity"))  # [m/s]
+	#POSE_TOPIC = rospy.get_param("/particle_filter/pose_topic")
 	local_topic = "/estim_pose"
 	#POSITION = None #rospy.get_param("~position") # (x,y), robot position in map frame
 
@@ -36,14 +36,14 @@ class PathPlanning:
 		# Initialize your publishers and
 		# subscribers here
 		#self.start_sub = rospy.Subscriber("/initialpose", PoseWithCovarianceStamped, self.set_start)
-		self.POSITION = rospy.Subscriber(self.local_topic,Point32,queue_size=10)
+		self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=10)
 		self.POSE = []
 		self.sub = rospy.Subscriber(self.PATH_TOPIC, Path, self.callback, queue_size=10)
-		self.pos_sub = rospy.Subscriber(self.POS_TOPIC, Marker, self.pose_callback, queue_size=10)
+		#self.pos_sub = rospy.Subscriber(self.POSE_TOPIC, Marker, self.pose_callback, queue_size=10)
 		self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
 		#self.trajectory  = utils.LineTrajectory("/followed_trajectory")
 		#self.traj_sub = rospy.Subscriber(self.trajectory_topic, PolygonStamped, self.trajectory_callback, queue_size=1)
-
+		self.position = np.zeros(2)
 
 	# TODO:
 	# Write your callback functions here.
@@ -55,8 +55,10 @@ class PathPlanning:
 	#	self.trajectory.fromPolygon(msg.polygon)
 	#	self.trajectory.publish_viz(duration=0.0)
 
+	def pose_callback(self,data):
+		self.position = np.array([data.x,data.y])
 	#def callback(self,path_info):
-	def callback(self):
+	def callback(self,d):
 		'''
 		main functionality of node
 		inputs trajectory data and outputs control action u
@@ -87,7 +89,9 @@ class PathPlanning:
 		# data = [[pose_stamped.pose.position.x, pose_stamped.pose.position.y] for pose_stamped in path_info.poses]
 		#data_ved = np.array(data)
 		data_vec = conv()
-		pos_map = np.array([[self.POSITION[0],self.POSITION[1]]]) # (1,2)
+		#pos_map = np.array([[self.position[0],self.position[1]]]) # (1,2)
+
+		pos_map = self.position
 
 		d = data_vec-pos_map # (n,2), puts data in robot frame (robot is at (0,0)), splits data into x and y each of length n
 
@@ -105,7 +109,7 @@ class PathPlanning:
 		#combined proportional-pure persuit controller with Ackermann steering
 		L = .324 #length of wheel base [m]
 		
-		x,y = path_remaining
+		x,y = path_remaining.T
 		m,b = np.polyfit(x[0:10],y[0:10],1)
 		#if path heading is within 15 degrees of straight ahead
 		#
@@ -138,10 +142,19 @@ class PathPlanning:
 			path_remaining = d
 			ind = 0
 		#find slope of line segment containing the target point
-		x1 = path_remaining[ind,0]
-		y1 = path_remaining[ind,1]
-		x2 = path_remaining[ind+1,0]
-		y2 = path_remaining[ind+1,1]
+		try: 
+			x1 = path_remaining[ind,0]
+			y1 = path_remaining[ind,1]
+			x2 = path_remaining[ind+1,0]
+			y2 = path_remaining[ind+1,1]
+		except:
+			x1 = 1
+			x2 = 2
+			y1 =1
+			y2 = 2
+			x_new = path_remaining[ind,0]
+			y_new = path_remaining[ind,1]
+			flag = True
 		#edge cases
 		flag = False
 		if y2==y1:
@@ -174,13 +187,13 @@ class PathPlanning:
 		A.drive.steering_angle_velocity = 0 #determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
 		self.pub.publish(A) #publish steering command
 
-	def pose_callback(self, pose_marker):
-		self.POSE = [pose_marker.points[0].x, pose_marker.points[0].y]
+	#def pose_callback(self, pose_marker):
+	#	self.POSE = [pose_marker.points[0].x, pose_marker.points[0].y]
 
 
 	
 if __name__ == "__main__":
 	rospy.init_node("path_planning")
 	path_planning = PathPlanning()
-	path_planning.callback()
+	#path_planning.callback()
 	rospy.spin()
