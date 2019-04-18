@@ -37,6 +37,7 @@ class RRTstar:
         self.goal_pose = [0, 0, 0] # x, y, theta
         self.goal_size = rospy.get_param("~goal_size")
         self.map_topic = rospy.get_param("~map_topic")
+        self.secondary_goal_multiplier = rospy.get_param("~big_region_size")
         self.goal_region = {"xmin": 0, "xmax": 0, "ymin": 0, "ymax": 0} # setup in set_goal
         self.map_res = rospy.get_param("~map_res")
         self.max_angle = rospy.get_param("~max_angle")
@@ -55,7 +56,8 @@ class RRTstar:
 
         # initialize algorithm parameters
         self.max_iter = rospy.get_param("~max_iter")
-        self.epsilon = rospy.get_param("~epsilon")
+        self.epsilon_all = rospy.get_param("~epsilon_all")
+        self.epsilon_big = rospy.get_param("~epsilon_big")
         self.neighbor_radius = rospy.get_param("~neighbor_radius")
         self.d = rospy.get_param("~d")
         self.turning_radius = rospy.get_param("~turning_radius")
@@ -71,12 +73,12 @@ class RRTstar:
         # self.end_node = None
         self.goal_poses = []
         self.goal_regions = []
+        self.goal_regions_secondary = []
 
         # initialize publishers and subscribers
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
         self.tree_pub = rospy.Publisher(self.TREE_TOPIC, Marker, queue_size=10)
         self.path_publisher = rospy.Publisher(self.PATH_TOPIC, Path, queue_size=10)
-        # self.pose_path_pub = rospy.Publisher(self.POSE_PATH_TOPIC, Float32MultiArray, queue_size=10)
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
         rospy.Subscriber(self.GOAL_TOPIC, PoseStamped, self.set_goal)
 
@@ -114,6 +116,12 @@ class RRTstar:
         goal_region["ymin"] = y-r
         goal_region["ymax"] = y+r
         self.goal_regions.append(goal_region)
+        goal_region_secondary = {}
+        goal_region_secondary["xmin"] = x-self.secondary_goal_multiplier*r
+        goal_region_secondary["xmax"] = x+self.secondary_goal_multiplier*r
+        goal_region_secondary["ymin"] = y-self.secondary_goal_multiplier*r
+        goal_region_secondary["ymax"] = y+self.secondary_goal_multiplier*r
+        self.goal_regions_secondary.append(goal_region)
 
     def map_callback(self, map_msg):
         while self.start_pose == [0, 0, 0] or len(self.goal_regions) < self.NUM_GOAL_REGIONS:
@@ -166,9 +174,10 @@ class RRTstar:
         self.full_pose_path = []
         for checkpoint in range(self.NUM_GOAL_REGIONS):
             self.start_pose = self.checkpoints[checkpoint]
-            self.start_node = Node(self.start_pose)
+            self.start_node = Node(self.start_pose, start=True)
             self.goal_pose = self.checkpoints[checkpoint + 1]
             self.goal_region = self.goal_regions[checkpoint]
+            self.goal_region_secondary = self.goal_regions_secondary[checkpoint]
             self.counter = 0
             self.nodes = []
             self.tree = index.Index()
@@ -177,7 +186,9 @@ class RRTstar:
             self.nodes.append(self.start_node)
             self.tree_insert(self.start_node)
             next_path = self.run_rrt()
-            self.full_pose_path.extend(self.full_pose_path)
+            self.full_pose_path.extend(next_path)
+        self.create_PointCloud_pose(self.full_pose_path)
+        self.draw_path(self.full_pose_path)
 
     def run_rrt(self):
         '''
@@ -186,6 +197,7 @@ class RRTstar:
         runs rrt algorithm
         '''
         already_found = False
+        self.max_iter = rospy.get_param("~max_iter")
         while self.counter < self.max_iter:
             # If our current node is in the goal, break
             self.counter += 1
@@ -213,24 +225,26 @@ class RRTstar:
                 self.pose_path = self.plan_pose_path()
                 self.create_PointCloud_pose(self.pose_path)
             #Get the closest node to our sample
-            closest = self.find_nearest_node(next_pose)
+            closest_multiple = self.find_nearest_node(next_pose)
             #Get actual pose for node
-            new_pose = self.steer(closest, next_pose)
-            # Get path from dubin. Note this is discretized as units of length
-            new_path = self.create_path(closest, new_pose)
+            for closest in closest_multiple:
+                new_pose = self.steer(closest, next_pose)
+                # Get path from dubin. Note this is discretized as units of length
+                new_path = self.create_path(closest, new_pose)
 
-            # self.create_PointCloud(self.nodes)
-            self.create_vistree()
-            if not self.in_collision(new_path):
-                cost = self.get_cost(new_path) + closest.cost
-                # Add node to nodes
-                new_node = Node(new_pose, closest, new_path, cost)
-                self.nodes.append(new_node)
-                # insert into tree
-                self.tree_insert(new_node)
-                #make current node the node just added
-                self.current = new_node
-                self.rewire()
+                # self.create_PointCloud(self.nodes)
+                self.create_vistree()
+                if not self.in_collision(new_path):
+                    cost = self.get_cost(new_path) + closest.cost
+                    # Add node to nodes
+                    new_node = Node(new_pose, closest, new_path, cost)
+                    self.nodes.append(new_node)
+                    # insert into tree
+                    self.tree_insert(new_node)
+                    #make current node the node just added
+                    self.current = new_node
+                    self.rewire()
+                    break
 
         if self.end_node is None:
             print "Failed to find goal within", self.max_iter, "steps."
@@ -248,8 +262,6 @@ class RRTstar:
         self.pose_path = self.plan_pose_path()
         self.create_PointCloud_pose(self.pose_path)
         print "Length of path:", len(self.pose_path)
-        self.draw_path(self.pose_path)
-        # self.send_multi_array(self.pose_path)
         return self.pose_path
 
     def steer(self, start_node, next_pose):
@@ -268,9 +280,6 @@ class RRTstar:
         Input: Parent node and proposed next pose [x, y, theta]
         Output: configurations with distance path_step between them
         '''
-        # path = dubins.shortest_path(start_node.pose, next_pose, self.turning_radius)
-        # configurations, _ = path.sample_many(self.path_step)
-        # return configurations
         path = []
         dist_ratio = self.path_step/self.get_dist(start_node.pose, next_pose)
         dx = (next_pose[0] - start_node.pose[0])*dist_ratio
@@ -289,19 +298,24 @@ class RRTstar:
         Pose sampled randomly from whole space with probability = self.epsilon
         and otherwise from the goal region
         """
-        if np.random.random() < self.epsilon:
+        num = np.random.random()
+        if num < self.epsilon_all:
             new_x = np.random.uniform(self.full_region["xmin"], self.full_region["xmax"])
             new_y = np.random.uniform(self.full_region["ymin"], self.full_region["ymax"])
             new = (new_x, new_y)
-        else:
+        elif num < self.epsilon_all + self.epsilon_big:
             new_x = np.random.uniform(self.goal_region["xmin"], self.goal_region["xmax"])
             new_y = np.random.uniform(self.goal_region["ymin"], self.goal_region["ymax"])
             new = (new_x, new_y)
-
-        if not self.in_collision([new]):
-            return new
         else:
-            return self.get_next()
+            new_x = np.random.uniform(self.goal_region_secondary["xmin"], self.goal_region_secondary["xmax"])
+            new_y = np.random.uniform(self.goal_region_secondary["ymin"], self.goal_region_secondary["ymax"])
+            new = (new_x, new_y)
+        return new
+        # if not self.in_collision([new]):
+        #     return new
+        # else:
+        #     return self.get_next()
 
     def optimize_path_next(self):
         """
@@ -351,9 +365,11 @@ class RRTstar:
         """
         x, y = pose[0], pose[1]
         # return two nearest because first nearest will always be itself
-        nearest = list(self.tree.nearest((x, y, x, y), 2))
-        print(nearest)
-        nearest_neighbor = self.nodes[nearest[-1]] # get node item from node list
+        nearest = list(self.tree.nearest((x, y, x, y), 4))
+        if len(nearest) == 1:
+            nearest_neighbor = [self.nodes[nearest[0]]]
+        else:
+            nearest_neighbor = [self.nodes[x] for x in nearest[1:]] # get node item from node list
         return nearest_neighbor
 
     def in_goal(self, node):
@@ -452,7 +468,7 @@ class RRTstar:
         path = self.create_path(grandparent, node.pose)
         if not self.in_collision(path):
             cost = self.get_cost(path)
-            if cost + grandparent.cost < node.cost and cost < 2 * self.neighbor_radius:
+            if cost + grandparent.cost < node.cost and cost < 6 * self.neighbor_radius:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.set_parent(grandparent)
                 node.path = path
@@ -529,25 +545,6 @@ class RRTstar:
         path.header = pose_stamp.header
         self.path_publisher.publish(path)
 
-    def angle_correct(self, theta):
-        theta %= 2*np.pi
-        if theta > np.pi:
-            theta = theta - 2*np.pi
-        return theta
-
-    # def send_multi_array(self, pose_path):
-    #     array = Float32MultiArray()
-    #     array.layout.dim.append(MultiArrayDimension())
-    #     array.layout.dim.append(MultiArrayDimension())
-    #     array.layout.dim[0].label = "Points"
-    #     array.layout.dim[1].label = "Pose"
-    #     array.layout.dim[0].size = len(pose_path)
-    #     array.layout.dim[1].size = 2
-    #     array.layout.dim[0].stride = len(pose_path)*2
-    #     array.layout.dim[1].stride = 2
-
-    #     array.data = [[pose[0], pose[1]] for pose in pose_path]
-    #     self.pose_path_pub.publish(array)
 
 class Node:
     """
@@ -555,16 +552,19 @@ class Node:
     """
     id = 0 # counter for nodes
 
-    def __init__(self, pose, parent = None, path = None, cost = 0.0):
+    def __init__(self, pose, parent = None, path = None, cost = 0.0, start = False):
         self.pose = pose # [x, y, theta]
         self.path = path # series of poses from parent to self
         self.parent = parent
         self.cost = cost # distance to source along edges
-
+        if start:
+            Node.id = 0
+        else:
+            Node.id += 1
         self.id = Node.id # self.id = index in RRT.nodes in RRT class
         self.line = [Point32(), Point32()]
         self.create_marker()
-        Node.id += 1
+
 
     def set_parent(self, parent):
         # print "Resetting parent of Node", self.id

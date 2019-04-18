@@ -6,7 +6,9 @@ origin_y_offset: -0.5
 num_goal_regions: 4
 
 # rrt* algorithm parameters
-epsilon: 0.8 # sample from goal region with probability 1-epsilon
+epsilon_all: 0.8 # sample from entire map with a probability epsilon_all
+epsilon_big: 0.1 # sample from large goal region with probability epsilon_big
+big_region_size: 6 # number of times larger secondary goal region is than goal region
 max_iter: 10000 # cap size of graph
 neighbor_radius: 2.0 # number of nearest neighbors to check for rewiring
 d: 0.5 # [meters] distance to travel during steering.
