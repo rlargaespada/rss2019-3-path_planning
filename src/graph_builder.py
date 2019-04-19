@@ -93,10 +93,10 @@ class search_algorithm:
         if self.map_loaded: 
             continue
 
-        print "Loading map:", rospy.get_param("~map"), "..."
-        print "Start and Goal intialized:"
-        print "Start: ", self.start_pose
-        print "Goal: ", self.goal_pose
+        # print "Loading map:", rospy.get_param("~map"), "..."
+        # print "Start and Goal intialized:"
+        # print "Start: ", self.start_pose
+        # print "Goal: ", self.goal_pose
         # Convert the map to a numpy array
         map_ = np.array(map_msg.data, np.double)
         map_ = np.clip(map_, 0, 1)

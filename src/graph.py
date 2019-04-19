@@ -61,18 +61,21 @@ class Graph(object):
 		return neighbors
 
 	def build_map(self, map):
-		x_max = map.shape[0]
-		y_max = map.shape[1]
+		x_max = map.shape[0]-1
+		y_max = map.shape[1]-1
 
-		for x in range(x_max):
-			for y in range(y_max):
+		for x in range(x_max+1):
+			for y in range(y_max+1):
 				if map[x,y] != 1:
 					pos = (x,y)
 					self.add_node(pos)
 					for coord in self.get_neighbor_coords(pos):
-						if 0 <= coord[0] <= x_max and 0 <= coord[1] <= y_max:
-							self.add_node(coord)
-							self.add_edge(pos, coord)
+						x_prime = coord[0]
+						y_prime = coord[1]
+						if 0 <= x_prime <= x_max and 0 <= y_prime <= y_max:
+							if map[x_prime, y_prime] != 1:
+								self.add_node(coord)
+								self.add_edge(pos, coord)
 
 
 	def heuristic(self, node1):
