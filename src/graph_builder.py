@@ -42,8 +42,9 @@ class search_algorithm:
         #Initialize visualization varibles
         self.cloud = PointCloud()
 
+        self.raw_path = []
         self.path = []
-
+        self.pos_path = []
 
         self.map_loaded = False
         self.map_graph = None
@@ -86,8 +87,8 @@ class search_algorithm:
         self.goal_region["ymax"] = y+r
 
     def map_callback(self, map_msg):
-        # while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
-        #     continue
+        while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
+            continue
 
         if self.map_loaded: 
             continue
@@ -143,9 +144,33 @@ class search_algorithm:
 
         self.map_loaded = True
 
-        self.path = search.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
+        self.path = self.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
+        #self.path = self.smooth_path()
         self.create_PointCloud()
+        self.pos_path = self.create_pose_path()
         self.draw_path()
+
+    def smooth_path(self):
+        path = []
+        return path
+
+    def create_pose_path(self):
+        pose_path = []
+        for p in range(len(self.path-1)):
+            pose = self.steer(self.path[p], self.path[p-1])
+            pose_path.append(pose)
+            
+        return pose_path
+
+    def steer(self, start_node, next_pose):
+        """
+        Input: Parent node and proposed next pose [x, y]
+        Output: the actual next pose [x, y, theta] (theta in direction of movement)
+        """
+        x = start_node.pose[0] + (next_pose[0] - start_node.pose[0])
+        y = start_node.pose[1] + (next_pose[1] - start_node.pose[1])
+        theta = np.arctan2(y, x)
+        return [x, y, theta]
 
     def create_PointCloud(self):
         '''
@@ -159,14 +184,14 @@ class search_algorithm:
             self.cloud.points[p].z = 0
         self.particle_cloud_publisher.publish(self.cloud)
 
-    def draw_path(self, pos_path):
+    def draw_path(self):
         header = Header()
         path = Path()
         header.stamp = rospy.rostime.Time.now()
         header.frame_id = "/map"
         pose_stamp = PoseStamped()
         pose_stamp.header = header
-        for pos in pos_path:
+        for pos in self.pos_path:
             point = Point()
             point.x = pos[0]
             point.y = pos[1]

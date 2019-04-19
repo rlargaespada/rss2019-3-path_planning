@@ -5,7 +5,7 @@
 def a_star(graph, start, goal):
 	''' Algorithm ends with a dictionary mapping nodes to their parent nodes'''
 	frontier = []
-	frontier.append((start,0)) # frontier consists of nodes 
+	frontier.append(start) # frontier consists of nodes 
 	came_from = {}
 	current_cost = {}
 	came_from[start] = None
@@ -15,7 +15,7 @@ def a_star(graph, start, goal):
 		current = frontier.pop(0)
 		if current == goal:
 			break
-
+		print(current)
 		for n in graph.neighbors[current]:
 			new_cost = current_cost[current] + graph.cost(current,n)
 			if n not in current_cost or new_cost<current_cost[n]:
@@ -28,6 +28,7 @@ def a_star(graph, start, goal):
 
 
 def queue_insert(queue, node, weight):
+	print(queue)
 	if len(queue) == 0:
 		return [node]
 	else:
