@@ -197,7 +197,9 @@ class RRTstar:
         for node in self.full_node_path[4:]:
             self.check_ancestors(node)
 
-        self.full_pose_path = self.plan_pose_path(self.full_node_path)
+        self.final_path = self.plan_node_path(self.full_node_path[-1])
+
+        self.full_pose_path = self.plan_pose_path(self.final_path)
         self.create_PointCloud_pose(self.full_pose_path)
         self.draw_path(self.full_pose_path)
 
@@ -222,7 +224,7 @@ class RRTstar:
                 self.nodes.append(self.end_node)
                 self.node_path = self.plan_node_path(self.end_node)
 
-                self.max_iter = 1.5*self.counter # run for 1.5 the amount of time it took to find goal in order to optimize
+                self.max_iter = 1.3*self.counter # run for 1.5 the amount of time it took to find goal in order to optimize
                 already_found = True
 
             # Get a random pose sample
@@ -300,7 +302,7 @@ class RRTstar:
         x_vals = np.arange(start_node.pose[0], next_pose[0], dx)
         y_vals = np.arange(start_node.pose[1], next_pose[1], dy)
         theta_vals = np.tile(theta, x_vals.size)
-        path = np.column_stack((x_vals, y_vals, theta_vals))
+        path = np.column_stack((x_vals, y_vals, theta_vals)).tolist()
         return path
 
     def get_next(self):
@@ -442,7 +444,6 @@ class RRTstar:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
                     possible_cost = self.get_cost(possible_path) + curr.cost
-                    
                     if possible_cost < n.cost:
                         # set parent of neighbor to current node
                         n.set_parent(curr)
@@ -454,7 +455,7 @@ class RRTstar:
         Input: Node object
         Output: list of Node objects from parent to child
         """
-        if node == None:
+        if node.parent == None:
             return []
         return self.plan_node_path(node.parent) + [node]
 
@@ -465,7 +466,10 @@ class RRTstar:
                 lst node in self.node_path
         '''
 
-        path = np.vstack([x.path for x in node_path[1:]])
+        # path = np.vstack([x.path for x in node_path[1:]])
+        path = []
+        for x in node_path:
+            path += x.path
         return path
 
     def check_ancestors(self, node):
@@ -485,7 +489,7 @@ class RRTstar:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.set_parent(grandparent)
                 node.set_path(path)
-                node.set_cost(cost)
+                node.set_cost(cost+grandparent.cost)
 
     def create_PointCloud(self, nodes):
         '''
