@@ -188,6 +188,8 @@ class RRTstar:
             self.tree_insert(self.start_node)
             next_path = self.run_rrt()
             self.full_pose_path.extend(next_path)
+        # print([[x[0], x[1]] for x in self.full_pose_path])
+        # print(self.full_pose_path)
         self.create_PointCloud_pose(self.full_pose_path, self.full_path_pub)
         # self.draw_path(self.full_pose_path)
 
