@@ -12,10 +12,10 @@ from std_msgs.msg import Header
 import matplotlib.pyplot as plt
 import graph
 import search
-try:
-   import cPickle as pickle
-except:
-   import pickle
+# try:
+#    import cPickle as pickle
+# except:
+#    import pickle
 
 class AStar:
     """
@@ -69,14 +69,14 @@ class AStar:
                 self.map_callback,
                 queue_size=1)
 
-    def real_world_to_occ(coord, resolution, origin):
-        x = int((coord[0]-origin[0])/resolution)
-        y = int((coord[1]-origin[1])/resolution)
+    def real_world_to_occ(self, coord, resolution, origin):
+        x = int((coord[0]-origin.position.x)/resolution)
+        y = int((coord[1]-origin.position.y)/resolution)
         return (x,y)
 
-    def occ_to_real_world(coord, resolution, origin):
-        x = coord[0]/resolution + origin[0]
-        y = coord[1]/resolution + origin[1]
+    def occ_to_real_world(self, coord, resolution, origin):
+        x = coord[0]/resolution + origin.position.x
+        y = coord[1]/resolution + origin.position.y
         return (x,y)
 
     def set_start(self, start_pose):
@@ -151,12 +151,12 @@ class AStar:
                                 }
             self.map_flip_const = 1.
 
-        self.map_graph = self.check_if_graph()
-        if self.map_graph == None:
+        # self.map_graph = self.check_if_graph()
+        # if self.map_graph == None:
             #map is an array of zeros and ones, convert into graph
-            self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
-            self.map_graph.build_map(self.map)
-            self.save_graph()
+        self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
+        self.map_graph.build_map(self.map)
+        # self.save_graph()
         
         #convert map so that large empty cells are consolidated
 
