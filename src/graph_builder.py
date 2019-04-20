@@ -17,7 +17,7 @@ try:
 except:
    import pickle
 
-class search_algorithm:
+class AStar:
     """
     A* path planning from ROS map
     """
