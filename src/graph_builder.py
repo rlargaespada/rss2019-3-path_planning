@@ -109,8 +109,9 @@ class AStar:
         # self.start_pose = self.real_world_to_occ(self.start_pose, map_msg.info.resolution, map_msg.info.origin)
         # self.goal_pose = self.real_world_to_occ(self.goal_pose, map_msg.info.resolution, map_msg.info.origin)
 
-        self.start_pose = (round(self.start_pose[0], 2), round(self.start_pose[1], 2))
-        self.goal_pose = (round(self.goal_pose[0], 2), round(self.goal_pose[1], 2))
+        self.start_pose = (round(self.start_pose[0], 1), round(self.start_pose[1], 1))
+        self.goal_pose = (round(self.goal_pose[0], 1), round(self.goal_pose[1], 1))
+        print(self.start_pose, self.goal_pose)
 
         # print "Loading map:", rospy.get_param("~map"), "..."
         # print "Start and Goal intialized:"
@@ -155,11 +156,14 @@ class AStar:
                                 }
             self.map_flip_const = 1.
 
+        print(self.origin)
+
         # self.map_graph = self.check_if_graph()
         # if self.map_graph == None:
             #map is an array of zeros and ones, convert into graph
         self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
-        self.map_graph.build_map(self.map_name, self.map, map_msg.info.resolution, map_msg.info.origin)
+        # print(map_msg.info.resolution, map_msg.info.origin.position.x, map_msg.info.origin.position.y)
+        self.map_graph.build_map(self.map_name, self.map, map_msg.info.resolution, self.origin)
         # self.save_graph()
         
         #convert map so that large empty cells are consolidated
@@ -204,8 +208,8 @@ class AStar:
         Input: Parent node and proposed next pose [x, y]
         Output: the actual next pose [x, y, theta] (theta in direction of movement)
         """
-        x = start_node.pose[0] + (next_pose[0] - start_node.pose[0])
-        y = start_node.pose[1] + (next_pose[1] - start_node.pose[1])
+        x = start_node[0] + (next_pose[0] - start_node[0])
+        y = start_node[1] + (next_pose[1] - start_node[1])
         theta = np.arctan2(y, x)
         return [x, y, theta]
 

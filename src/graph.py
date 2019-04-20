@@ -64,8 +64,8 @@ class Graph(object):
 		return neighbors
 
 	def occ_to_real_world(self, coord, resolution, origin):
-		x = round(coord[0]*resolution - origin.position.x, 2)
-		y = round(coord[1]*resolution - origin.position.y, 2)
+		x = round(-coord[0]*resolution + origin[0], 1)
+		y = round(-coord[1]*resolution + origin[1], 1)
 		return (x,y)
 
 	def build_map(self, name, map, resolution, origin):
