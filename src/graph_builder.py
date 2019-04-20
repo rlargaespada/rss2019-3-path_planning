@@ -1,14 +1,14 @@
+#!/usr/bin/env python2
 import rospy
-from rtree import index
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
-import dubins
+# import dubins
 import tf
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32, PoseWithCovarianceStamped, PoseStamped, Pose, Quaternion, Point
 from nav_msgs.msg import Path
 from std_msgs.msg import Header
-import scipy.misc
+# import scipy.misc
 import matplotlib.pyplot as plt
 import graph
 import search
@@ -43,7 +43,8 @@ class search_algorithm:
         self.origin_x_offset = rospy.get_param("~origin_x_offset")
         self.origin_y_offset = rospy.get_param("~origin_y_offset")
 
-        #Initialize visualization varibles
+        #Initialize visualization variables
+        self.buff_factor = rospy.get_param("~buff_map")
         self.cloud = PointCloud()
 
         self.raw_path = []
@@ -67,6 +68,16 @@ class search_algorithm:
                 OccupancyGrid,
                 self.map_callback,
                 queue_size=1)
+
+    def real_world_to_occ(coord, resolution, origin):
+        x = int((coord[0]-origin[0])/resolution)
+        y = int((coord[1]-origin[1])/resolution)
+        return (x,y)
+
+    def occ_to_real_world(coord, resolution, origin):
+        x = coord[0]/resolution + origin[0]
+        y = coord[1]/resolution + origin[1]
+        return (x,y)
 
     def set_start(self, start_pose):
         """
@@ -94,9 +105,8 @@ class search_algorithm:
     def map_callback(self, map_msg):
         while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
             continue
-
-        if self.map_loaded: 
-            pass
+        self.start_pose = self.real_world_to_occ(self.start_pose, map_msg.info.resolution, map_msg.info.origin)
+        self.goal_pose = self.real_world_to_occ(self.goal_pose, map_msg.info.resolution, map_msg.info.origin)
 
         # print "Loading map:", rospy.get_param("~map"), "..."
         # print "Start and Goal intialized:"
@@ -151,8 +161,10 @@ class search_algorithm:
         #convert map so that large empty cells are consolidated
 
         self.map_loaded = True
+        print("yay, we built the graph!")
 
         self.path = search.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
+        print(self.path)
         #self.path = self.smooth_path()
         self.create_PointCloud()
         self.pos_path = self.create_pose_path()
@@ -171,9 +183,9 @@ class search_algorithm:
         except:
             return None
 
-    def smooth_path(self):
-        path = []
-        return path
+    # def smooth_path(self):
+    #     path = []
+    #     return path
 
     def create_pose_path(self):
         pose_path = []
@@ -230,3 +242,8 @@ class search_algorithm:
             path.poses.append(pose_stamp)
         path.header = pose_stamp.header
         self.path_publisher.publish(path)
+
+if __name__ == "__main__":
+    rospy.init_node("astar")
+    astar = AStar()
+    rospy.spin()
