@@ -70,13 +70,14 @@ class AStar:
                 queue_size=1)
 
     def real_world_to_occ(self, coord, resolution, origin):
-        x = int((coord[0]-origin.position.x)/resolution)
-        y = int((coord[1]-origin.position.y)/resolution)
+        '''converts coordinates from the "real world" frame to the occupancy grid frame'''
+        x = int((coord[0]+origin.position.x)/resolution)
+        y = int((coord[1]+origin.position.y)/resolution)
         return (x,y)
 
     def occ_to_real_world(self, coord, resolution, origin):
-        x = coord[0]/resolution + origin.position.x
-        y = coord[1]/resolution + origin.position.y
+        x = coord[0]/resolution - origin.position.x
+        y = coord[1]/resolution - origin.position.y
         return (x,y)
 
     def set_start(self, start_pose):

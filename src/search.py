@@ -5,14 +5,14 @@
 def a_star(graph, start, goal):
 	''' Algorithm ends with a dictionary mapping nodes to their parent nodes'''
 	frontier = []
-	frontier.append((start,0)) # frontier consists of nodes 
+	frontier.append((tuple(start),0)) # frontier consists of nodes 
 	came_from = {}
 	current_cost = {}
-	came_from[start] = None
-	current_cost[start] = 0
+	came_from[tuple(start)] = None
+	current_cost[tuple(start)] = 0
 
 	while len(frontier)!=0:
-		current = frontier.pop(0)[0]
+		current, value = frontier.pop(0)
 		if current == goal:
 			break
 		#print('current :', current)
@@ -38,8 +38,8 @@ def queue_insert(queue, node, weight):
 		for i in range(len(queue)):
 			if queue[i][1]>weight:
 				return queue[:i] + [(node,weight)] + queue[i:]
-			else:
-				return queue + [(node,weight)]
+		else:
+			return queue + [(node,weight)]
 
 def process_astar(came_from, start, goal):
 	points = []
