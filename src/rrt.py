@@ -263,7 +263,7 @@ class RRTstar:
         self.create_PointCloud_pose(self.pose_path)
         print "Length of path:", len(self.pose_path)
         
-        self.create_PointCloud_from_poses(self.pose_path)
+        self.create_PointCloud_pose(self.pose_path)
         # self.draw_path(self.pose_path)
         return self.pose_path
 
