@@ -198,6 +198,13 @@ class RRTstar:
             self.check_ancestors(node)
 
         self.final_path = self.plan_node_path(self.full_node_path[-1])
+        start = self.final_path[0]
+        end = self.final_path[-1]
+        start.set_parent(end)
+
+        # make path between start and end
+        loop_path = self.create_path(end, start.pose)
+        start.set_path(loop_path)
 
         self.full_pose_path = self.plan_pose_path(self.final_path)
         self.create_PointCloud_pose(self.full_pose_path)
