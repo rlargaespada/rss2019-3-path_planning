@@ -11,7 +11,11 @@ from std_msgs.msg import Header
 import scipy.misc
 import matplotlib.pyplot as plt
 import graph
-import search.py
+import search
+try:
+   import cPickle as pickle
+except:
+   import pickle
 
 class search_algorithm:
     """
@@ -48,6 +52,7 @@ class search_algorithm:
 
         self.map_loaded = False
         self.map_graph = None
+        self.map_file = 'map_file'
 
         # initialize publishers and subscribers
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
@@ -91,7 +96,7 @@ class search_algorithm:
             continue
 
         if self.map_loaded: 
-            continue
+            pass
 
         # print "Loading map:", rospy.get_param("~map"), "..."
         # print "Start and Goal intialized:"
@@ -136,19 +141,35 @@ class search_algorithm:
                                 }
             self.map_flip_const = 1.
 
-        #map is an array of zeros and ones, convert into graph
-        self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
-        self.map_graph.build_map(self.map)
+        self.map_graph = self.check_if_graph()
+        if self.map_graph == None:
+            #map is an array of zeros and ones, convert into graph
+            self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
+            self.map_graph.build_map(self.map)
+            self.save_graph()
         
         #convert map so that large empty cells are consolidated
 
         self.map_loaded = True
 
-        self.path = self.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
+        self.path = search.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
         #self.path = self.smooth_path()
         self.create_PointCloud()
         self.pos_path = self.create_pose_path()
         self.draw_path()
+
+    def save_graph(self):
+        with open(self.map_file, 'wb') as f:
+            pickle.dump(self.map_graph,f)
+
+    def check_if_graph(self):
+        try:
+            with open(self.map_file) as f:
+                graph = pickle.load(f)
+            return graph
+
+        except:
+            return None
 
     def smooth_path(self):
         path = []

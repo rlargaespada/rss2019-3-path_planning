@@ -48,7 +48,7 @@ class Graph(object):
 		for node in p:
 			print(node, ':', p[node])
 
-		return ''
+		return str(len(self.nodes))
 
 	def get_neighbor_coords(self,coord):
 		x = coord[0]
@@ -66,14 +66,14 @@ class Graph(object):
 
 		for x in range(x_max+1):
 			for y in range(y_max+1):
-				if map[x,y] != 1:
+				if map[x,y] == 0:
 					pos = (x,y)
 					self.add_node(pos)
 					for coord in self.get_neighbor_coords(pos):
 						x_prime = coord[0]
 						y_prime = coord[1]
 						if 0 <= x_prime <= x_max and 0 <= y_prime <= y_max:
-							if map[x_prime, y_prime] != 1:
+							if map[x_prime, y_prime] == 0:
 								self.add_node(coord)
 								self.add_edge(pos, coord)
 
@@ -118,15 +118,15 @@ class Consolidated_Graph(Graph):
 
 		return neighbors
 
-	def build_consolidated_map(self, map):
+	def build_map(self, map):
 
-		self.x_max = map.shape[0]
-		self.y_max = map.shape[1]
+		self.x_max = map.shape[0]-1
+		self.y_max = map.shape[1]-1
 
 		#find occupied coordinates
-		for x in range(self.x_max):
-			for y in range(self.y_max):
-				if map[x,y] == 1:
+		for x in range(self.x_max+1):
+			for y in range(self.y_max+1):
+				if map[x,y] != 0:
 					self.occupied_coords.add((x, y))
 
 		#create single square nodes
@@ -135,7 +135,22 @@ class Consolidated_Graph(Graph):
 			for direction, coord in enumerate(neighbors):
 				d = self.direction_mapping[direction]
 				self.build_small_square(coord, d)
+
+		#create medium squares
+		for square in self.small_squares:
+			neighbors in self.get_perp_neighbor_coords(square)
+			for direction, coord in enumerate(neighbors):
+				d = self.direction_mapping[direction]
+				if self.is_clear(coord, d, self.med_dim):
+					self.build_medium_square(coord, d)
 			
+		#create large squares
+		for square in self.medium_squares:
+			neighbors in self.get_perp_neighbor_coords(square)
+			for direction, coord in enumerate(neighbors):
+				d = self.direction_mapping[direction]
+				if self.is_clear(coord, d, self.large_dim):
+					self.build_large_square(coord, d)
 		
 
 	def is_clear(self, coord, direction, size=1):
@@ -171,6 +186,7 @@ class Consolidated_Graph(Graph):
 			coords_to_check = {coord}
 
 		for coord in coords_to_check:
+			if not (0 <= coord[0] <= self.x_max) or not (0 <= coord[1] <= self.y_max): return (False, None)
 			if coord in self.occupied_coords: return (False, None)
 			if coord in self.unoccupied_coords: return (False, None)
 
@@ -182,6 +198,9 @@ class Consolidated_Graph(Graph):
 			self.unoccupied_coords.add(coord)
 			self.small_squares.add(coord)
 			self.directions[coord] = direction
+			for d, neighbor in enumerate(self.get_perp_neighbor_coords(coord)):
+				if self.direction_mapping[d] != direction:
+					self.add_edge(coord, neighbor)
 
 	def build_medium_square(self, coords, direction):
 		#find correct corner coordinate
