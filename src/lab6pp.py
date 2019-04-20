@@ -206,7 +206,8 @@ class PureP:
         # data = [[pose_stamped.pose.position.x, pose_stamped.pose.position.y] for pose_stamped in path_info.poses]
         #data_ved = np.array(data)
         #data_vec = [[-.05*x, .0] for x in range(400)] #+ [[20, .05*x] for x in range(100)]
-        data_vec = [[i.x,i.y] for i in d]
+        print("map initialized")
+        data_vec = [[i.x,i.y] for i in d.points]
         '''
         data_vec = [
         [13.761675857774913, -0.18534033611027692], [13.808737887808133, -0.20222717504337123], 

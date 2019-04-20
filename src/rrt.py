@@ -48,7 +48,7 @@ class RRTstar:
         self.map_name = rospy.get_param("~map")
         self.origin_x_offset = rospy.get_param("~origin_x_offset")
         self.origin_y_offset = rospy.get_param("~origin_y_offset")
-        self.POSE_PATH_TOPIC = rospy.get_param("~path_send_topic")
+        self.POSE_PATH_TOPIC = rospy.get_param("~path_topic")
 
         #Initialize visualization varibles
         self.cloud = PointCloud()
