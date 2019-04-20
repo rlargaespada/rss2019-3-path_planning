@@ -1,4 +1,5 @@
 from math import floor
+import json
 
 # class Node(object):
 # 	def __init__(self,x,y, val=0):
@@ -26,6 +27,8 @@ class Graph(object):
 		self.neighbors = {} # dict of node mapped to edges
 		self.start = start
 		self.goal = goal
+		self.x_max = None
+		self.y_max = None
 
 	def cost(self, p1, p2):
 		return ((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)**(0.5)
@@ -60,29 +63,83 @@ class Graph(object):
 
 		return neighbors
 
-	def build_map(self, map):
-		x_max = map.shape[0]-1
-		y_max = map.shape[1]-1
+	def build_map(self, name, map):
+		#fn = str(name)+'.json'
+		# try: 
+		# 	with open(fn, 'r') as fp:
+		# 		data = json.load(fp)
+		# 	self.neighbors = data
+		# 	self.nodes = set(self.neighbors.keys())
+		# 	return
+		# except:
+		# 	pass
+		self.x_max = map.shape[0]-1
+		self.y_max = map.shape[1]-1
 
-		for x in range(x_max+1):
-			for y in range(y_max+1):
+		for x in range(self.x_max+1):
+			for y in range(self.y_max+1):
 				if map[x,y] == 0:
 					pos = (x,y)
 					self.add_node(pos)
 					for coord in self.get_neighbor_coords(pos):
 						x_prime = coord[0]
 						y_prime = coord[1]
-						if 0 <= x_prime <= x_max and 0 <= y_prime <= y_max:
+						if 0 <= x_prime <= self.x_max and 0 <= y_prime <= self.y_max:
 							if map[x_prime, y_prime] == 0:
 								self.add_node(coord)
 								self.add_edge(pos, coord)
 
+		# with open(fn, 'w') as fp:
+		# 	json.dump(self.neighbors, fp)
+		# return
 
 	def heuristic(self, node1):
 		point1 = node1
 		point2 = self.goal
 		return ((point1[0]-point2[0])**2+(point1[1]-point2[1])**2)**(0.5)
+#work on graph algorithm
+#change coordinates when building map
+#add json to graph builder
 
+class Lookahead_Graph(Graph):
+	def __init__(self, start, goal, lookahead):
+		Graph.__init__(self, start, goal)
+		self.lookahead = lookahead
+		#self.direction_mapping = {'UL': }
+
+	def get_lookahead_neighbors(self, coord):
+		x = coord[0]
+		y = coord[1]
+
+		lookahead_neighbors = set()
+
+		for deltax in range(-1, -self.lookahead, -1):
+			for deltay in range(-1, -self.lookahead, -1):
+				neighbor = (x+deltax, y+deltay)
+
+
+
+	def build_map(self, map, name, origin):
+		fn = str(name)+'.json'
+		try: 
+			with open(fn, 'r') as fp:
+				data = json.load(fp)
+			self.neighbors = data
+			self.nodes = set(self.neighbors.keys())
+			return
+		except:
+			pass
+
+		x_0 = origin[0]
+		y_0 = origin[1]
+
+		neighbor_queue = {tuple(origin)}
+
+		while len(neighbor_queue) != 0:
+			pass
+		
+
+		
 class Consolidated_Graph(Graph):
 	def __init__(self, start, goal, med, large):
 		Graph.__init__(self, start, goal)
@@ -138,19 +195,11 @@ class Consolidated_Graph(Graph):
 
 		#create medium squares
 		for square in self.small_squares:
-			neighbors in self.get_perp_neighbor_coords(square)
-			for direction, coord in enumerate(neighbors):
-				d = self.direction_mapping[direction]
-				if self.is_clear(coord, d, self.med_dim):
-					self.build_medium_square(coord, d)
+			for d in self.direction_mapping.values():
+				self.build_medium_square(square, d)
+
 			
 		#create large squares
-		for square in self.medium_squares:
-			neighbors in self.get_perp_neighbor_coords(square)
-			for direction, coord in enumerate(neighbors):
-				d = self.direction_mapping[direction]
-				if self.is_clear(coord, d, self.large_dim):
-					self.build_large_square(coord, d)
 		
 
 	def is_clear(self, coord, direction, size=1):
@@ -186,9 +235,9 @@ class Consolidated_Graph(Graph):
 			coords_to_check = {coord}
 
 		for coord in coords_to_check:
-			if not (0 <= coord[0] <= self.x_max) or not (0 <= coord[1] <= self.y_max): return (False, None)
-			if coord in self.occupied_coords: return (False, None)
-			if coord in self.unoccupied_coords: return (False, None)
+			if not (0 <= coord[0] <= self.x_max) or not (0 <= coord[1] <= self.y_max): return (False, coords_to_check)
+			if coord in self.occupied_coords: return (False, coords_to_check)
+			if coord in self.unoccupied_coords: return (False, coords_to_check)
 
 		return (True, coords_to_check)
 
@@ -199,13 +248,21 @@ class Consolidated_Graph(Graph):
 			self.small_squares.add(coord)
 			self.directions[coord] = direction
 			for d, neighbor in enumerate(self.get_perp_neighbor_coords(coord)):
+				#fix for when a small square is made from possible medium squares
 				if self.direction_mapping[d] != direction:
 					self.add_edge(coord, neighbor)
 
 	def build_medium_square(self, coords, direction):
 		#find correct corner coordinate
 		#check if surrounding area is clear
-		pass
+		clear, area = self.is_clear(coords, direction)
+		if clear:
+			#create medium square in using the 9 squares in area
+			pass
+		else:
+			#create small squares using all working squares in area
+			for square in area:
+				self.build_small_square(square, direction)
 
 	def build_large_square(self, coord, direction):
 		pass
