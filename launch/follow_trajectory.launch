@@ -1,19 +1,15 @@
 <launch>
 	<include file="$(find localization)/launch/localize_sim.launch"/>
-	
+
 	<arg name="lookahead" default="1.5"/>
 	<arg name="max_reacquire" default="3.0"/>
 	<arg name="velocity" default="10"/>
 
 	<arg name="odom_topic" default="/pf/pose/odom"/>
-	
+
 	<node pkg="lab6" type="lab6pp.py" name="Trajectory_follower" output="screen">
-		<param name="odom_topic" value="$(arg odom_topic)"/>	
-<<<<<<< HEAD
-		<param name="path_topic" value="test_path"/>
-=======
-		<param name="path_topic" value="path"/>
->>>>>>> 32952a3dcf5a78208cd542112a6a610d37d3d081
+		<param name="odom_topic" value="$(arg odom_topic)"/>
+		<param name="path_topic" value="/localize_error"/>
 		<param name="trajectory_topic" value="/trajectory/current"/>
 		<param name="lookahead" value="$(arg lookahead)"/>
 		<param name="velocity" value="$(arg velocity)"/>
