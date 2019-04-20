@@ -171,7 +171,8 @@ class RRTstar:
                                 }
             self.map_flip_const = 1.
 
-        self.full_pose_path = []
+        self.full_node_path = []
+        # self.full_pose_path = []
         for checkpoint in range(self.NUM_GOAL_REGIONS):
             self.start_pose = self.checkpoints[checkpoint]
             self.start_node = Node(self.start_pose, start=True)
@@ -185,8 +186,18 @@ class RRTstar:
             self.current = self.start_node
             self.nodes.append(self.start_node)
             self.tree_insert(self.start_node)
-            next_path = self.run_rrt()
-            self.full_pose_path.extend(next_path)
+            next_path = self.run_rrt() # list of nodes
+            # self.full_pose_path.extend(next_path)
+            if self.full_node_path != []:
+                next_path[0].set_parent(self.full_node_path[-1])
+            self.full_node_path.extend(next_path)
+
+        print "Len path:", len(self.full_node_path)
+
+        for node in self.full_node_path[4:]:
+            self.check_ancestors(node)
+
+        self.full_pose_path = self.plan_pose_path(self.full_node_path)
         self.create_PointCloud_pose(self.full_pose_path)
         self.draw_path(self.full_pose_path)
 
@@ -222,7 +233,7 @@ class RRTstar:
                 next_pose = self.optimize_path_next()
                 #Create path of poses from the node_path
                 self.node_path = self.plan_node_path(self.end_node)
-                self.pose_path = self.plan_pose_path()
+                self.pose_path = self.plan_pose_path(self.node_path)
                 self.create_PointCloud_pose(self.pose_path)
             #Get the closest node to our sample
             closest_multiple = self.find_nearest_node(next_pose)
@@ -259,10 +270,11 @@ class RRTstar:
         self.node_path = self.plan_node_path(self.end_node)
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
-        self.pose_path = self.plan_pose_path()
+        self.pose_path = self.plan_pose_path(self.node_path)
         self.create_PointCloud_pose(self.pose_path)
         print "Length of path:", len(self.pose_path)
-        return self.pose_path
+        # return self.pose_path
+        return self.node_path
 
     def steer(self, start_node, next_pose):
         """
@@ -445,14 +457,14 @@ class RRTstar:
             return []
         return self.plan_node_path(node.parent) + [node]
 
-    def plan_pose_path(self):
+    def plan_pose_path(self, node_path):
         '''
-        Input: None
+        Input: List of Node objects representing a path
         Output: List of poses from first Node in self.node_path to
                 lst node in self.node_path
         '''
 
-        path = np.vstack([x.path for x in self.node_path[1:]])
+        path = np.vstack([x.path for x in node_path[1:]])
         return path
 
     def check_ancestors(self, node):
