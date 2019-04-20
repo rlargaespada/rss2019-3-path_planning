@@ -262,6 +262,9 @@ class RRTstar:
         self.pose_path = self.plan_pose_path()
         self.create_PointCloud_pose(self.pose_path)
         print "Length of path:", len(self.pose_path)
+        
+        self.create_PointCloud_from_poses(self.pose_path)
+        # self.draw_path(self.pose_path)
         return self.pose_path
 
     def steer(self, start_node, next_pose):
@@ -430,6 +433,7 @@ class RRTstar:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
                     possible_cost = self.get_cost(possible_path) + curr.cost
+                    
                     if possible_cost < n.cost:
                         # set parent of neighbor to current node
                         n.set_parent(curr)
@@ -471,7 +475,8 @@ class RRTstar:
             if cost + grandparent.cost < node.cost and cost < 6 * self.neighbor_radius:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.set_parent(grandparent)
-                node.path = path
+                node.set_path(path)
+                node.set_cost(cost)
 
     def create_PointCloud(self, nodes):
         '''
@@ -564,7 +569,6 @@ class Node:
         self.id = Node.id # self.id = index in RRT.nodes in RRT class
         self.line = [Point32(), Point32()]
         self.create_marker()
-
 
     def set_parent(self, parent):
         # print "Resetting parent of Node", self.id
