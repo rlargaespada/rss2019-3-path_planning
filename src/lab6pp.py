@@ -35,7 +35,7 @@ class PureP:
         #subs
         self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=10)
         # self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
-        self.sub = rospy.Subscriber(self.PATH_TOPIC, Point32, self.callback, queue_size=10)
+        self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         # pubs
         self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
         self.pub_line = rospy.Publisher("marker",Marker,queue_size=10)
@@ -80,7 +80,7 @@ class PureP:
         #dynamic lookahead distance
         v = self.VELOCITY
         if v<1:
-            l=1
+            l=2
         elif 1<v<5:
             l=v/5+1
         else:
