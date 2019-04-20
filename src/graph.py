@@ -63,7 +63,12 @@ class Graph(object):
 
 		return neighbors
 
-	def build_map(self, name, map):
+	def occ_to_real_world(self, coord, resolution, origin):
+		x = round(coord[0]*resolution - origin.position.x, 2)
+		y = round(coord[1]*resolution - origin.position.y, 2)
+		return (x,y)
+
+	def build_map(self, name, map, resolution, origin):
 		#fn = str(name)+'.json'
 		# try: 
 		# 	with open(fn, 'r') as fp:
@@ -80,14 +85,16 @@ class Graph(object):
 			for y in range(self.y_max+1):
 				if map[x,y] == 0:
 					pos = (x,y)
-					self.add_node(pos)
+					rwpose = self.occ_to_real_world(pos, resolution, origin)
+					self.add_node(rwpose)
 					for coord in self.get_neighbor_coords(pos):
 						x_prime = coord[0]
 						y_prime = coord[1]
 						if 0 <= x_prime <= self.x_max and 0 <= y_prime <= self.y_max:
 							if map[x_prime, y_prime] == 0:
-								self.add_node(coord)
-								self.add_edge(pos, coord)
+								rwcoord = self.occ_to_real_world(coord, resolution, origin)
+								self.add_node(rwcoord)
+								self.add_edge(rwpose, rwcoord)
 
 		# with open(fn, 'w') as fp:
 		# 	json.dump(self.neighbors, fp)

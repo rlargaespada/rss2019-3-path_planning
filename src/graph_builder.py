@@ -69,16 +69,16 @@ class AStar:
                 self.map_callback,
                 queue_size=1)
 
-    def real_world_to_occ(self, coord, resolution, origin):
-        '''converts coordinates from the "real world" frame to the occupancy grid frame'''
-        x = int((coord[0]+origin.position.x)/resolution)
-        y = int((coord[1]+origin.position.y)/resolution)
-        return (x,y)
+    # def real_world_to_occ(self, coord, resolution, origin):
+    #     '''converts coordinates from the "real world" frame to the occupancy grid frame'''
+    #     x = int((coord[0]+origin.position.x)/resolution)
+    #     y = int((coord[1]+origin.position.y)/resolution)
+    #     return (x,y)
 
-    def occ_to_real_world(self, coord, resolution, origin):
-        x = coord[0]/resolution - origin.position.x
-        y = coord[1]/resolution - origin.position.y
-        return (x,y)
+    # def occ_to_real_world(self, coord, resolution, origin):
+    #     x = coord[0]*resolution - origin.position.x
+    #     y = coord[1]*resolution - origin.position.y
+    #     return (x,y)
 
     def set_start(self, start_pose):
         """
@@ -106,8 +106,11 @@ class AStar:
     def map_callback(self, map_msg):
         while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
             continue
-        self.start_pose = self.real_world_to_occ(self.start_pose, map_msg.info.resolution, map_msg.info.origin)
-        self.goal_pose = self.real_world_to_occ(self.goal_pose, map_msg.info.resolution, map_msg.info.origin)
+        # self.start_pose = self.real_world_to_occ(self.start_pose, map_msg.info.resolution, map_msg.info.origin)
+        # self.goal_pose = self.real_world_to_occ(self.goal_pose, map_msg.info.resolution, map_msg.info.origin)
+
+        self.start_pose = (round(self.start_pose[0], 2), round(self.start_pose[1], 2))
+        self.goal_pose = (round(self.goal_pose[0], 2), round(self.goal_pose[1], 2))
 
         # print "Loading map:", rospy.get_param("~map"), "..."
         # print "Start and Goal intialized:"
@@ -156,7 +159,7 @@ class AStar:
         # if self.map_graph == None:
             #map is an array of zeros and ones, convert into graph
         self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
-        self.map_graph.build_map(self.map)
+        self.map_graph.build_map(self.map_name, self.map, map_msg.info.resolution, map_msg.info.origin)
         # self.save_graph()
         
         #convert map so that large empty cells are consolidated
@@ -190,8 +193,8 @@ class AStar:
 
     def create_pose_path(self):
         pose_path = []
-        for p in range(len(self.path-1)):
-            pose = self.steer(self.path[p], self.path[p-1])
+        for p in range(len(self.path)-1):
+            pose = self.steer(self.path[p], self.path[p+1])
             pose_path.append(pose)
             
         return pose_path
