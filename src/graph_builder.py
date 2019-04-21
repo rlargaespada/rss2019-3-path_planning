@@ -181,7 +181,7 @@ class AStar:
             self.goal_pose = self.goal_list.pop(0)
 
             self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
-            print(self.path)
+            # print(self.path)
             #self.path = self.smooth_path()
             self.start_pose = self.goal_pose
             
@@ -194,7 +194,7 @@ class AStar:
         self.PointCloud_path(self.path)
         while True:
             self.particle_cloud_publisher.publish(self.cloud)
-            print("there should be a motherfucking particle cloud")
+            # print("there should be a motherfucking particle cloud")
 
     def save_graph(self):
         with open(self.map_file, 'wb') as f:
@@ -233,6 +233,7 @@ class AStar:
 
     def PointCloud_path(self, points):
         self.cloud.header.frame_id = "/map"
+        self.cloud.header.stamp = rospy.rostime.Time.now()
         self.cloud.points = [Point32() for i in range(len(points))]
         for point in range(len(points)):
             self.cloud.points[point].x = points[point][0]
