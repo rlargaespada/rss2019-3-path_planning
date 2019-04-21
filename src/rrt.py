@@ -172,8 +172,8 @@ class RRTstar:
                                 }
             self.map_flip_const = 1.
 
-        self.full_node_path = []
-        # self.full_pose_path = []
+        # self.full_node_path = []
+        self.full_pose_path = []
         for checkpoint in range(self.NUM_GOAL_REGIONS):
             self.start_pose = self.checkpoints[checkpoint]
             self.start_node = Node(self.start_pose, start=True)
@@ -187,36 +187,10 @@ class RRTstar:
             self.current = self.start_node
             self.nodes.append(self.start_node)
             self.tree_insert(self.start_node)
-<<<<<<< HEAD
-            next_path = self.run_rrt() # list of nodes
-            # self.full_pose_path.extend(next_path)
-            if self.full_node_path != []:
-                next_path[0].set_parent(self.full_node_path[-1])
-            self.full_node_path.extend(next_path)
-
-        print "Len path:", len(self.full_node_path)
-
-        for node in self.full_node_path[4:]:
-            self.check_ancestors(node)
-
-        self.final_path = self.plan_node_path(self.full_node_path[-1])
-        start = self.final_path[0]
-        end = self.final_path[-1]
-        start.set_parent(end)
-
-        # make path between start and end
-        loop_path = self.create_path(end, start.pose)
-        start.set_path(loop_path)
-
-        self.full_pose_path = self.plan_pose_path(self.final_path)
-        self.create_PointCloud_pose(self.full_pose_path)
-        self.draw_path(self.full_pose_path)
-=======
             next_path = self.run_rrt()
             self.full_pose_path.extend(next_path)
         self.create_PointCloud_pose(self.full_pose_path, self.full_path_pub)
         # self.draw_path(self.full_pose_path)
->>>>>>> simple pure pursuit and rrt
 
     def run_rrt(self):
         '''
@@ -250,13 +224,8 @@ class RRTstar:
                 next_pose = self.optimize_path_next()
                 #Create path of poses from the node_path
                 self.node_path = self.plan_node_path(self.end_node)
-<<<<<<< HEAD
                 self.pose_path = self.plan_pose_path(self.node_path)
-                self.create_PointCloud_pose(self.pose_path)
-=======
-                self.pose_path = self.plan_pose_path()
                 self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
->>>>>>> simple pure pursuit and rrt
             #Get the closest node to our sample
             closest_multiple = self.find_nearest_node(next_pose)
             #Get actual pose for node
@@ -292,16 +261,11 @@ class RRTstar:
         self.node_path = self.plan_node_path(self.end_node)
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
-<<<<<<< HEAD
         self.pose_path = self.plan_pose_path(self.node_path)
-        self.create_PointCloud_pose(self.pose_path)
-=======
-        self.pose_path = self.plan_pose_path()
         self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
->>>>>>> simple pure pursuit and rrt
         print "Length of path:", len(self.pose_path)
         # return self.pose_path
-        return self.node_path
+        return self.pose_path
 
     def steer(self, start_node, next_pose):
         """

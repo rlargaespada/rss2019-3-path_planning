@@ -1,6 +1,6 @@
 <launch>
   <!-- Launch the racecar simulator -->
-  <include file="$(find racecar_simulator)/launch/simulate.launch"/>
+  <!-- <include file="$(find racecar_simulator)/launch/simulate.launch"/> -->
   
   <!-- Begin rrt for path planning -->
   <node pkg="lab6" type="rrt.py" name="rrt" output="screen">
