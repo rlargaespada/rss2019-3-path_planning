@@ -2,8 +2,8 @@
 goal_size: 0.5 # side length of square surrounding goal region
 buff_map: 5 # number of pixels around which to buff the walls on map
 origin_x_offset: -0.5 # additive factor by which the given origin is off from the map
-origin_y_offset: -0.5
-num_goal_regions: 4
+origin_y_offset: 0
+num_goal_regions: 3
 
 # rrt* algorithm parameters
 epsilon_all: 0.8 # sample from entire map with a probability epsilon_all
