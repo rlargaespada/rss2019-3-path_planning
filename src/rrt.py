@@ -226,7 +226,11 @@ class RRTstar:
                 next_pose = self.optimize_path_next()
                 #Create path of poses from the node_path
                 self.node_path = self.plan_node_path(self.end_node)
+<<<<<<< HEAD
                 self.pose_path = self.plan_pose_path(self.node_path)
+=======
+                self.pose_path = self.plan_pose_path()
+>>>>>>> 3effcba415f4a3b5942f70df5c67ee0938b1247f
                 self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
             #Get the closest node to our sample
             closest_multiple = self.find_nearest_node(next_pose)
@@ -263,7 +267,11 @@ class RRTstar:
         self.node_path = self.plan_node_path(self.end_node)
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
+<<<<<<< HEAD
         self.pose_path = self.plan_pose_path(self.node_path)
+=======
+        self.pose_path = self.plan_pose_path()
+>>>>>>> 3effcba415f4a3b5942f70df5c67ee0938b1247f
         self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
         print "Length of path:", len(self.pose_path)
         # return self.pose_path
