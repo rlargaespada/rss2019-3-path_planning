@@ -6,7 +6,7 @@
 
 	<arg name="odom_topic" default="/pf/pose/odom"/>
 	
-	<node pkg="lab6" type="lab6pp.py" name="Trajectory_follower">
+	<node pkg="lab6" type="lab6pp.py" name="Trajectory_follower" output="screen">
 		<param name="odom_topic" value="$(arg odom_topic)"/>		
 		<param name="trajectory_topic" value="/trajectory/current"/>
 		<param name="lookahead" value="$(arg lookahead)"/>

@@ -53,6 +53,7 @@ class PathPlanning:
 		Will pursue the first point that falls outside the lookahead distance.
 		Since points are close together this should translate into relatively smooth curve
 		'''
+		print("HIII")
 		path = [[point.x, point.y] for point in path_points.points]
 		# path = [[0.05*x, 0] for x in range(100)]
 		# path += [[5, 0.05*x] for x in range(100)]
@@ -115,7 +116,7 @@ class PathPlanning:
 
 	
 if __name__ == "__main__":
-	rospy.init_node("path_planning")
+	rospy.init_node("Trajectory_follower")
 	path_planning = PathPlanning()
 	# path_planning.pp_callback([5, 5])
 	rospy.spin()
