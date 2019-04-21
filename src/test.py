@@ -32,17 +32,17 @@ map = np.array([
 map = np.concatenate((np.concatenate((map, np.flipud(map)), 0), np.fliplr(np.concatenate((map, np.flipud(map)), 0))), 1)
 #print(map)
 start = (4,4)
-goal = (15,15)
-g = graph.Lookahead_Graph(start, goal, .2) #inputs should be rw
+goal = (9,9)
+g = graph.Graph(start, goal)#, .1) #inputs should be rw
 # g.test_setup((.15, .25), .05, map)
-# c = g.occ_to_real_world((2,7))
-# print('c ', c)
+# c = g.occ_to_real_world((9,9))
+#print('c ', c)
 # r = (g.get_lookahead_neighbors(c, map))
 # print(r)
 # o = {g.real_world_to_occ(p) for p in r}
 # print(o)
 g.build_map(map, 'test_map', .05, (.15,.25,0)) #inputs should be rw
-print('\n')
+#print(g.real_world_to_occ((.15,.25)))
 print(g)
 print(map.size)
 #print(g.get_neighbor_coords((9,9)))
@@ -51,7 +51,7 @@ print(map.size)
 #print(map.shape)
 #print(g.neighbors[(2, 6)])
 #print(g.neighbors[(0,0)])
-path = search.a_star(g, g.start, g.goal)
-print(path)
-p2 = [g.real_world_to_occ(p) for p in path]
-print(p2)
+# path = search.a_star(g, g.start, g.goal)
+# print(path)
+# p2 = [g.real_world_to_occ(p) for p in path]
+# print(p2)

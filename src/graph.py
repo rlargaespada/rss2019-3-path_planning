@@ -1,27 +1,6 @@
-from math import floor
 import json
 import numpy as np
 #import decimal
-
-# class Node(object):
-# 	def __init__(self,x,y, val=0):
-# 		self.position = (x,y)
-# 		self.value = val
-
-# class Dimensioned_Node(Node):
-# 	#dimensions should be odd numbers
-# 	def __init__(self, x, y, val, dim):
-# 		Node.__init__(self, x, y, val)
-# 		self.dim = dim
-# 		b = floor(dim/2)
-# 		self.bounds = {(self.position[0]-b, self.position[1]-b), (self.position[0]-b, self.position[1]+b),
-# 						(self.position[0]+b, self.position[1]-b), (self.position[0]+b, self.position[1]+b)}
-
-class Waypoint(object):
-	def __init__(self, x, y, theta):
-		self.x = x
-		self.y = y
-		self.theta = theta
 
 class Graph(object):
 	def __init__(self, start, goal):
@@ -47,14 +26,8 @@ class Graph(object):
 		self.neighbors[node1].add(node2)
 
 	def __str__(self):
-		p = dict()
-		for node in self.nodes:
-			p[node] = []
-			for n in self.neighbors[node]:
-				p[node].append(n)
-		for node in p:
-			print(node, ':', p[node])
-
+		for node in self.neighbors:
+			print(node, ' : ', self.neighbors[node])
 		return str(len(self.nodes))
 
 	def get_neighbor_coords(self,coord):
@@ -140,7 +113,8 @@ class Lookahead_Graph(Graph):
 		# self.x_min = decimal.Decimal(str(x_min))
 		# self.y_min = decimal.Decimal(str(y_min))
 
-	def find_nearest_node(self, node):
+	def insert_node(self, node): #adding additional nodes after the graph is built
+		self.add_node(node)
 		for n in self.nodes:
 			if n != node and self.get_dist(node, n) < self.lookahead/2:
 				self.add_edge(node, n)
@@ -307,7 +281,9 @@ class Lookahead_Graph(Graph):
 			for neighbor in neighbors:
 				n = self.nodes_in_range(neighbor, current) #rw
 				self.add_edge(current, n) #rw, rw
-				if n not in self.nodes: neighbor_queue.append(n) #rw		
+				if n not in self.nodes: neighbor_queue.append(n) #rw
+
+		self.insert_node(self.goal)
 				
 		# with open(fn, 'w') as fp:
 		# 	json.dump(self.neighbors, fp)

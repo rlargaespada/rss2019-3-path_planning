@@ -165,7 +165,8 @@ class AStar:
         # self.map_graph = self.check_if_graph()
         # if self.map_graph == None:
             #map is an array of zeros and ones, convert into graph
-        self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
+        lookahead = 1 # m
+        self.map_graph = graph.Lookahead_Graph(self.start_pose[:2], self.goal_pose[:2], lookahead)
         # print(map_msg.info.resolution, map_msg.info.origin.position.x, map_msg.info.origin.position.y)
         self.map_graph.build_map(self.map, self.map_name, map_msg.info.resolution, self.origin)
         # self.save_graph()
@@ -179,7 +180,7 @@ class AStar:
 
         while len(self.goal_list)>0:
             self.goal_pose = self.goal_list.pop(0)
-
+            #self.map_graph.insert_node(self.goal_pose[:2])
             self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
             # print(self.path)
             #self.path = self.smooth_path()
