@@ -37,10 +37,10 @@ class Graph(object):
 		if node in self.nodes:
 			return
 		self.nodes.add(node)
-		self.neighbors[node] = []
+		self.neighbors[node] = set()
 
 	def add_edge(self, node1, node2):
-		self.neighbors[node1].append(node2)
+		self.neighbors[node1].add(node2)
 
 	def __str__(self):
 		p = dict()
@@ -63,7 +63,12 @@ class Graph(object):
 
 		return neighbors
 
-	def build_map(self, name, map):
+	def occ_to_real_world(self, coord, resolution, origin):
+		x = round(-coord[0]*resolution + origin[0], 1)
+		y = round(-coord[1]*resolution + origin[1], 1)
+		return (x,y)
+
+	def build_map(self, name, map, resolution, origin):
 		#fn = str(name)+'.json'
 		# try: 
 		# 	with open(fn, 'r') as fp:
@@ -76,18 +81,20 @@ class Graph(object):
 		self.x_max = map.shape[0]-1
 		self.y_max = map.shape[1]-1
 
-		for x in range(self.x_max+1):
-			for y in range(self.y_max+1):
+		for x in range(0, self.x_max+1, 1):
+			for y in range(0, self.y_max+1, 1):
 				if map[x,y] == 0:
 					pos = (x,y)
-					self.add_node(pos)
+					rwpose = self.occ_to_real_world(pos, resolution, origin)
+					self.add_node(rwpose)
 					for coord in self.get_neighbor_coords(pos):
 						x_prime = coord[0]
 						y_prime = coord[1]
 						if 0 <= x_prime <= self.x_max and 0 <= y_prime <= self.y_max:
 							if map[x_prime, y_prime] == 0:
-								self.add_node(coord)
-								self.add_edge(pos, coord)
+								rwcoord = self.occ_to_real_world(coord, resolution, origin)
+								self.add_node(rwcoord)
+								self.add_edge(rwpose, rwcoord)
 
 		# with open(fn, 'w') as fp:
 		# 	json.dump(self.neighbors, fp)
