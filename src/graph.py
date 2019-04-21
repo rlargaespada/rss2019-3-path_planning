@@ -68,7 +68,7 @@ class Graph(object):
 		y = round(-coord[1]*resolution + origin[1], 1)
 		return (x,y)
 
-	def build_map(self, name, map, resolution, origin):
+	def build_map(self, map, name, resolution, origin):
 		#fn = str(name)+'.json'
 		# try: 
 		# 	with open(fn, 'r') as fp:
