@@ -167,7 +167,7 @@ class AStar:
             #map is an array of zeros and ones, convert into graph
         self.map_graph = graph.Graph(self.start_pose[:2], self.goal_pose[:2])
         # print(map_msg.info.resolution, map_msg.info.origin.position.x, map_msg.info.origin.position.y)
-        self.map_graph.build_map(self.map_name, self.map, map_msg.info.resolution, self.origin)
+        self.map_graph.build_map(self.map, self.map_name, map_msg.info.resolution, self.origin)
         # self.save_graph()
         
         #convert map so that large empty cells are consolidated
@@ -181,16 +181,20 @@ class AStar:
             self.goal_pose = self.goal_list.pop(0)
 
             self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
-            print(self.path)
+            # print(self.path)
             #self.path = self.smooth_path()
             self.start_pose = self.goal_pose
-            self.create_PointCloud()
-            self.pos_path = self.create_pose_path()
-            self.draw_path()
+            
+            # self.pos_path = self.create_pose_path()
+            # self.draw_path()
         print("       ")
         print("       ")
         print("       ")
         print(self.path)
+        self.PointCloud_path(self.path)
+        while True:
+            self.particle_cloud_publisher.publish(self.cloud)
+            # print("there should be a motherfucking particle cloud")
 
     def save_graph(self):
         with open(self.map_file, 'wb') as f:
@@ -227,17 +231,14 @@ class AStar:
         theta = np.arctan2(y, x)
         return [x, y, theta]
 
-    def create_PointCloud(self):
-        '''
-        Create and publish point cloud of particles and current pose marker
-        '''
+    def PointCloud_path(self, points):
         self.cloud.header.frame_id = "/map"
-        self.cloud.points = [Point32() for i in range(len(self.path))]
-        for p in range(len(self.path)):
-            self.cloud.points[p].x = self.path[p][0]
-            self.cloud.points[p].y = self.path[p][1]
-            self.cloud.points[p].z = 0
-        self.particle_cloud_publisher.publish(self.cloud)
+        self.cloud.header.stamp = rospy.rostime.Time.now()
+        self.cloud.points = [Point32() for i in range(len(points))]
+        for point in range(len(points)):
+            self.cloud.points[point].x = points[point][0]
+            self.cloud.points[point].y = points[point][1]
+            self.cloud.points[point].z = 0
 
     def draw_path(self):
         header = Header()
@@ -264,6 +265,7 @@ class AStar:
             path.poses.append(pose_stamp)
         path.header = pose_stamp.header
         self.path_publisher.publish(path)
+
 
 if __name__ == "__main__":
     rospy.init_node("astar")
