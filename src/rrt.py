@@ -188,15 +188,10 @@ class RRTstar:
             self.tree_insert(self.start_node)
             next_path = self.run_rrt()
             self.full_pose_path.extend(next_path)
-<<<<<<< HEAD
         # print([[x[0], x[1]] for x in self.full_pose_path])
         # print(self.full_pose_path)
         self.create_PointCloud_pose(self.full_pose_path, self.full_path_pub)
-        # self.draw_path(self.full_pose_path)
-=======
-        self.create_PointCloud_pose(self.full_pose_path)
         self.draw_path(self.full_pose_path)
->>>>>>> parent of 0527a9b... simple pure pursuit and rrt
 
     def run_rrt(self):
         '''
@@ -230,13 +225,8 @@ class RRTstar:
                 next_pose = self.optimize_path_next()
                 #Create path of poses from the node_path
                 self.node_path = self.plan_node_path(self.end_node)
-<<<<<<< HEAD
                 self.pose_path = self.plan_pose_path(self.node_path)
                 self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
-=======
-                self.pose_path = self.plan_pose_path()
-                self.create_PointCloud_pose(self.pose_path)
->>>>>>> parent of 0527a9b... simple pure pursuit and rrt
             #Get the closest node to our sample
             closest_multiple = self.find_nearest_node(next_pose)
             #Get actual pose for node
@@ -273,8 +263,13 @@ class RRTstar:
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.pose_path = self.plan_pose_path(self.node_path)
         self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
+=======
+        self.pose_path = self.plan_pose_path()
+        self.create_PointCloud_pose(self.pose_path)
+>>>>>>> parent of 0527a9b... simple pure pursuit and rrt
 =======
         self.pose_path = self.plan_pose_path()
         self.create_PointCloud_pose(self.pose_path)
