@@ -25,9 +25,9 @@ warnings.simplefilter('ignore', np.RankWarning)
 class PathPlanning:
 	# Access these variables in class functions with self:
 	# i.e. self.CONSTANT
-	PATH_TOPIC = rospy.get_param("/Trajectory_follower/path_topic")
+	PATH_TOPIC = "/test_path"
 	DRIVE_TOPIC = rospy.get_param("/Trajectory_follower/drive_topic")
-	VELOCITY = float(rospy.get_param("/Trajectory_follower/velocity"))  # [m/s]
+	VELOCITY = float(rospy.get_param("/Trajectory_follower/speed"))  # [m/s]
 	#POSE_TOPIC = rospy.get_param("/particle_filter/pose_topic")
 	local_topic = "/estim_pose"
 	float_topic = "/numbers"
@@ -37,6 +37,7 @@ class PathPlanning:
 
 
 	def __init__(self):
+		print("HELLO")
 		self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=10)
 		self.POSE = []
 		self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
@@ -79,7 +80,7 @@ class PathPlanning:
 				A.drive.steering_angle = u #determines input steering control
 				A.drive.steering_angle_velocity = 0 #determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
 				self.pub.publish(A) #publish steering command
-				rospy.sleep(.05)
+				rospy.sleep(.02)
 
 	def dist(self, pos1, pos2):
 		return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
