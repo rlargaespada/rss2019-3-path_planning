@@ -43,6 +43,8 @@ class AStar:
         self.origin_x_offset = rospy.get_param("~origin_x_offset")
         self.origin_y_offset = rospy.get_param("~origin_y_offset")
 
+        self.goal_list = []
+
         #Initialize visualization variables
         self.buff_factor = rospy.get_param("~buff_map")
         self.cloud = PointCloud()
@@ -87,15 +89,17 @@ class AStar:
         x, y = start_pose.pose.pose.position.x, start_pose.pose.pose.position.y
         theta = 2*np.arctan(start_pose.pose.pose.orientation.z/start_pose.pose.pose.orientation.w)
 
-        self.start_pose = [x, y, theta]
+        self.start_pose = [round(x, 1), round(y, 1), theta]
 
     def set_goal(self, goal_pose):
         """
         Gets goal pose from rviz nav goal marker.
         """
         x, y = goal_pose.pose.position.x, goal_pose.pose.position.y
+        goal = [round(x, 1), round(y, 1), 0]
 
-        self.goal_pose = [x, y, 0]
+        self.goal_pose = goal
+        self.goal_list.append(goal)
         r = self.goal_size/2
 
         self.goal_region["xmin"] = x-r
@@ -171,12 +175,22 @@ class AStar:
         self.map_loaded = True
         print("yay, we built the graph!")
 
-        self.path = search.a_star(self.map_graph, self.start_pose[:2], self.goal_pose[:2])
+        print(self.goal_list)
+
+        while len(self.goal_list)>0:
+            self.goal_pose = self.goal_list.pop(0)
+
+            self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
+            print(self.path)
+            #self.path = self.smooth_path()
+            self.start_pose = self.goal_pose
+            self.create_PointCloud()
+            self.pos_path = self.create_pose_path()
+            self.draw_path()
+        print("       ")
+        print("       ")
+        print("       ")
         print(self.path)
-        #self.path = self.smooth_path()
-        self.create_PointCloud()
-        self.pos_path = self.create_pose_path()
-        self.draw_path()
 
     def save_graph(self):
         with open(self.map_file, 'wb') as f:

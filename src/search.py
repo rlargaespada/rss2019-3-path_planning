@@ -28,7 +28,7 @@ def a_star(graph, start, goal):
 				#print('f2', frontier)
 				came_from[n] = current
 
-	return process_astar(came_from, start, goal)
+	return process_astar(came_from, tuple(start), tuple(goal))
 
 
 def queue_insert(queue, node, weight):

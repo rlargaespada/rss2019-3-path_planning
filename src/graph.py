@@ -37,10 +37,10 @@ class Graph(object):
 		if node in self.nodes:
 			return
 		self.nodes.add(node)
-		self.neighbors[node] = []
+		self.neighbors[node] = set()
 
 	def add_edge(self, node1, node2):
-		self.neighbors[node1].append(node2)
+		self.neighbors[node1].add(node2)
 
 	def __str__(self):
 		p = dict()
@@ -81,8 +81,8 @@ class Graph(object):
 		self.x_max = map.shape[0]-1
 		self.y_max = map.shape[1]-1
 
-		for x in range(self.x_max+1):
-			for y in range(self.y_max+1):
+		for x in range(0, self.x_max+1, 1):
+			for y in range(0, self.y_max+1, 1):
 				if map[x,y] == 0:
 					pos = (x,y)
 					rwpose = self.occ_to_real_world(pos, resolution, origin)
