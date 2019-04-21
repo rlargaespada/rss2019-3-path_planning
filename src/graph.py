@@ -1,5 +1,7 @@
 from math import floor
 import json
+import numpy as np
+#import decimal
 
 # class Node(object):
 # 	def __init__(self,x,y, val=0):
@@ -29,6 +31,8 @@ class Graph(object):
 		self.goal = goal
 		self.x_max = None
 		self.y_max = None
+		self.resolution = None
+		self.origin = tuple()
 
 	def cost(self, p1, p2):
 		return ((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)**(0.5)
@@ -63,12 +67,12 @@ class Graph(object):
 
 		return neighbors
 
-	def occ_to_real_world(self, coord, resolution, origin):
-		x = round(-coord[0]*resolution + origin[0], 1)
-		y = round(-coord[1]*resolution + origin[1], 1)
+	def occ_to_real_world(self, coord):
+		x = round(-coord[0]*self.resolution + self.origin[0], 1)
+		y = round(-coord[1]*self.resolution + self.origin[1], 1)
 		return (x,y)
 
-	def build_map(self, name, map, resolution, origin):
+	def build_map(self, map, name, resolution, origin):
 		#fn = str(name)+'.json'
 		# try: 
 		# 	with open(fn, 'r') as fp:
@@ -78,6 +82,8 @@ class Graph(object):
 		# 	return
 		# except:
 		# 	pass
+		self.resolution = resolution
+		self.origin = origin
 		self.x_max = map.shape[0]-1
 		self.y_max = map.shape[1]-1
 
@@ -85,14 +91,14 @@ class Graph(object):
 			for y in range(0, self.y_max+1, 1):
 				if map[x,y] == 0:
 					pos = (x,y)
-					rwpose = self.occ_to_real_world(pos, resolution, origin)
+					rwpose = self.occ_to_real_world(pos)
 					self.add_node(rwpose)
 					for coord in self.get_neighbor_coords(pos):
 						x_prime = coord[0]
 						y_prime = coord[1]
 						if 0 <= x_prime <= self.x_max and 0 <= y_prime <= self.y_max:
 							if map[x_prime, y_prime] == 0:
-								rwcoord = self.occ_to_real_world(coord, resolution, origin)
+								rwcoord = self.occ_to_real_world(coord)
 								self.add_node(rwcoord)
 								self.add_edge(rwpose, rwcoord)
 
@@ -104,48 +110,208 @@ class Graph(object):
 		point1 = node1
 		point2 = self.goal
 		return ((point1[0]-point2[0])**2+(point1[1]-point2[1])**2)**(0.5)
-#work on graph algorithm
-#change coordinates when building map
-#add json to graph builder
 
 class Lookahead_Graph(Graph):
 	def __init__(self, start, goal, lookahead):
 		Graph.__init__(self, start, goal)
-		self.lookahead = lookahead
-		#self.direction_mapping = {'UL': }
+		self.lookahead = lookahead #decimal.Decimal(str(lookahead))
+		self.x_min = None
+		self.y_min = None
+		self.map = None
 
-	def get_lookahead_neighbors(self, coord):
-		x = coord[0]
-		y = coord[1]
+	def occ_to_real_world(self, coord):
+		x = round(-coord[0]*self.resolution + self.origin[0], 2)
+		y = round(-coord[1]*self.resolution + self.origin[1], 2)
+		return (x,y)
 
+	def real_world_to_occ(self, coord):
+		x = round((-coord[0]+self.origin[0])/self.resolution, 1)
+		y = round((-coord[1]+self.origin[1])/self.resolution, 1)
+		return (x,y)
+
+	def test_setup(self, origin, resolution, map):
+		self.map = map
+		self.resolution = resolution #decimal.Decimal(str(resolution))
+		self.origin = origin #[decimal.Decimal(str(dim)) for dim in origin]
+		self.x_max, self.y_max = self.occ_to_real_world((0,0))
+		# self.x_max = decimal.Decimal(str(x_max))
+		# self.y_max = decimal.Decimal(str(y_max))
+		self.x_min, self.y_min = self.occ_to_real_world((self.map.shape[0]-1,self.map.shape[1]-1))
+		# self.x_min = decimal.Decimal(str(x_min))
+		# self.y_min = decimal.Decimal(str(y_min))
+
+	def find_nearest_node(self, node):
+		for n in self.nodes:
+			if n != node and self.get_dist(node, n) < self.lookahead/2:
+				self.add_edge(node, n)
+				self.add_edge(n, node)
+
+	def get_lookahead_neighbors(self, coord, map):
+		# x = coord[0] #rw
+		# y = coord[1] #rw
+
+		coord_oc = self.real_world_to_occ(coord)
+		x_oc = int(coord_oc[0])
+		y_oc = int(coord_oc[1])
+		x_max = map.shape[0]-1
+		y_max = map.shape[1]-1
 		lookahead_neighbors = set()
+		lookahead = int(round(self.lookahead/self.resolution, 2))
 
-		for deltax in range(-1, -self.lookahead, -1):
-			for deltay in range(-1, -self.lookahead, -1):
-				neighbor = (x+deltax, y+deltay)
+		#lower right diagonal
+		for deltaxy in range(1, lookahead, 1):
+			neighbor = (x_oc+deltaxy, y_oc+deltaxy)
+			if not (0 <= neighbor[0] <= x_max) or not (0 <= neighbor[1] <= y_max):
+				n = ((x_oc+deltaxy-1, y_oc+deltaxy-1))
+				if n != coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			if map[int(neighbor[0]), int(neighbor[1])] != 0:
+				n = ((x_oc+deltaxy-1, y_oc+deltaxy-1))
+				if n!= coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			elif deltaxy == lookahead-1:
+				n = ((x_oc+deltaxy, y_oc+deltaxy))
+				lookahead_neighbors.add(self.occ_to_real_world(n))
 
+		#upper right diagonal
+		for deltaxy in range(1, lookahead, 1):
+			neighbor = (x_oc-deltaxy, y_oc+deltaxy)
+			if not (0 <= neighbor[0] <= x_max) or not (0 <= neighbor[1] <= y_max):
+				n = ((x_oc-deltaxy+1, y_oc+deltaxy-1))
+				if n != coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			if map[int(neighbor[0]), int(neighbor[1])] != 0:
+				n = ((x_oc-deltaxy+1, y_oc+deltaxy-1))
+				if n!= coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			elif deltaxy == lookahead-1:
+				n = ((x_oc-deltaxy, y_oc+deltaxy))
+				lookahead_neighbors.add(self.occ_to_real_world(n))
 
+		#lower left diagonal
+		for deltaxy in range(1, lookahead, 1):
+			neighbor = (x_oc+deltaxy, y_oc-deltaxy)
+			if not (0 <= neighbor[0] <= x_max) or not (0 <= neighbor[1] <= y_max):
+				n = ((x_oc+deltaxy-1, y_oc-deltaxy+1))
+				if n != coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			if map[int(neighbor[0]), int(neighbor[1])] != 0:
+				n = ((x_oc+deltaxy-1, y_oc-deltaxy+1))
+				if n!= coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			elif deltaxy == lookahead-1:
+				n = ((x_oc+deltaxy, y_oc-deltaxy))
+				lookahead_neighbors.add(self.occ_to_real_world(n))
 
-	def build_map(self, map, name, origin):
-		fn = str(name)+'.json'
-		try: 
-			with open(fn, 'r') as fp:
-				data = json.load(fp)
-			self.neighbors = data
-			self.nodes = set(self.neighbors.keys())
-			return
-		except:
-			pass
+		#upper left diagonal
+		for deltaxy in range(1, lookahead, 1):
+			neighbor = (x_oc-deltaxy, y_oc-deltaxy)
+			if not (0 <= neighbor[0] <= x_max) or not (0 <= neighbor[1] <= y_max):
+				n = ((x_oc-deltaxy+1, y_oc-deltaxy+1))
+				if n != coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			if map[int(neighbor[0]), int(neighbor[1])] != 0:
+				n = ((x_oc-deltaxy+1, y_oc-deltaxy+1))
+				if n!= coord_oc:
+					lookahead_neighbors.add(self.occ_to_real_world(n))
+				break
+			elif deltaxy == lookahead-1:
+				n = ((x_oc-deltaxy, y_oc-deltaxy))
+				lookahead_neighbors.add(self.occ_to_real_world(n))
 
-		x_0 = origin[0]
-		y_0 = origin[1]
+		#upper/lower neighbors
+		x_bound = int(x_oc-lookahead+1)
+		upper_col = map[:x_oc+1, y_oc] if x_bound < 0 else map[x_bound:x_oc+1, y_oc]
 
-		neighbor_queue = {tuple(origin)}
+		for deltax in range(-2, -len(upper_col)-1, -1):
+			if upper_col[deltax] != 0:
+				if deltax != -2:
+					lookahead_neighbors.add(self.occ_to_real_world((x_oc+deltax+2, y_oc)))
+				break
+			elif deltax == -len(upper_col):
+				lookahead_neighbors.add(self.occ_to_real_world((x_oc+deltax+1, y_oc)))
+
+		lower_col = map[x_oc:x_oc+lookahead, y_oc] #contains x in lower_col[0]
+		for deltax in range(1, len(lower_col), 1):
+			if lower_col[deltax] != 0:
+				if deltax != 1:
+					lookahead_neighbors.add(self.occ_to_real_world((x_oc+deltax-1, y_oc)))
+				break
+			elif deltax == len(lower_col)-1:
+				lookahead_neighbors.add(self.occ_to_real_world((x_oc+deltax, y_oc)))
+
+		#left/right neighbors
+		y_bound = y_oc-lookahead+1
+		left_row = map[x_oc, :y_oc+1] if y_bound < 0 else map[x_oc, y_bound:y_oc+1]
+		right_row = map[x_oc, y_oc:lookahead+y_oc]
+
+		for deltay in range(-2, -len(left_row)-1, -1):
+			if left_row[deltay] != 0:
+				if deltay != -2:
+					lookahead_neighbors.add(self.occ_to_real_world((x_oc, y_oc+deltay+2)))
+				break
+			elif deltay == -len(left_row):
+				lookahead_neighbors.add(self.occ_to_real_world((x_oc, y_oc+deltay+1)))
+		
+		for deltay in range(1, len(right_row), 1):
+			if right_row[deltay] != 0:
+				if deltay != 1:
+					lookahead_neighbors.add(self.occ_to_real_world((x_oc, y_oc+deltay-1)))
+				break
+			elif deltay == len(right_row)-1:
+				lookahead_neighbors.add(self.occ_to_real_world((x_oc, y_oc+deltay)))
+
+		return lookahead_neighbors
+
+	def nodes_in_range(self, node, current):
+		for n in self.nodes:
+			if n != current and self.get_dist(node, n) < self.lookahead/2: return n
+		return node
+
+	def get_dist(self, pos1, pos2):
+		return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5	
+
+	def build_map(self, map, name, resolution, origin):
+		self.resolution = resolution
+		self.origin = origin
+		self.x_max, self.y_max = self.occ_to_real_world((0,0))
+		self.x_min, self.y_min = self.occ_to_real_world((map.shape[0]-1,map.shape[1]-1))
+
+		self.start = self.occ_to_real_world(self.start)
+		self.goal = self.occ_to_real_world(self.goal)
+		
+		# fn = str(name)+'.json'
+		# try: 
+		# 	with open(fn, 'r') as fp:
+		# 		data = json.load(fp)
+		# 	self.neighbors = data
+		# 	self.nodes = set(self.neighbors.keys())
+		# 	return
+		# except:
+		# 	pass
+		self.add_node(self.start) #rw
+		self.add_node(self.goal) #rw
+		neighbor_queue = [self.start] #rw
 
 		while len(neighbor_queue) != 0:
-			pass
-		
-
+			current = neighbor_queue.pop() #rw
+			self.add_node(current) #rw
+			neighbors = self.get_lookahead_neighbors(current, map) #rw
+			for neighbor in neighbors:
+				n = self.nodes_in_range(neighbor, current) #rw
+				self.add_edge(current, n) #rw, rw
+				if n not in self.nodes: neighbor_queue.append(n) #rw		
+				
+		# with open(fn, 'w') as fp:
+		# 	json.dump(self.neighbors, fp)
+	
 		
 class Consolidated_Graph(Graph):
 	def __init__(self, start, goal, med, large):
@@ -274,3 +440,110 @@ class Consolidated_Graph(Graph):
 	def build_large_square(self, coord, direction):
 		pass
 	
+
+#ul
+# for deltaxy in np.linspace(step, self.lookahead, self.lookahead/step):
+# 	deltaxy = round(deltaxy, 2)
+# 	neighbor = (round(x+deltaxy, 2), round(y+deltaxy, 2))
+# 	if not (self.x_min <= neighbor[0] <= self.x_max) or not (self.y_min <= neighbor[1] <= self.y_max):
+# 		n = ((round(x+deltaxy-step,2), round(y+deltaxy-step,2)))
+# 		if n != coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	map_test = (self.real_world_to_occ(neighbor))
+# 	if map[int(map_test[0]), int(map_test[1])] != 0:
+# 		n = ((round(x+deltaxy-step,2), round(y+deltaxy-step,2)))
+# 		if n!= coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	elif deltaxy == round(self.lookahead-step,2):
+# 		n = ((round(x+deltaxy,2), round(y+deltaxy,2)))
+# 		lookahead_neighbors.append(n)
+
+#ll
+# for deltaxy in np.linspace(step, self.lookahead, self.lookahead/step):
+# 	deltaxy = round(deltaxy, 2)
+# 	neighbor = (round(x-deltaxy,2), round(y+deltaxy,2))
+# 	if not (self.x_min <= neighbor[0] <= self.x_max) or not (self.y_min <= neighbor[1] <= self.y_max):
+# 		n = ((round(x-deltaxy+step,2), round(y+deltaxy-step,2)))
+# 		if n != coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	map_test = (self.real_world_to_occ(neighbor))
+# 	if map[int(map_test[0]), int(map_test[1])] != 0:
+# 		n = ((round(x-deltaxy+step,2), round(y+deltaxy-step,2)))
+# 		if n!= coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	elif deltaxy == round(self.lookahead-step,2):
+# 		n = ((round(x-deltaxy,2), round(y+deltaxy,2)))
+# 		lookahead_neighbors.append(n)
+
+#ur
+# for deltaxy in np.linspace(step, self.lookahead-step, self.lookahead/step):
+# 	deltaxy = round(deltaxy, 2)
+# 	neighbor = (round(x+deltaxy, 2), round(y-deltaxy, 2))
+# 	if not (self.x_min <= neighbor[0] <= self.x_max) or not (self.y_min <= neighbor[1] <= self.y_max):
+# 		n = ((round(x+deltaxy-step,2), round(y-deltaxy+step,2)))
+# 		if n != coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	map_test = (self.real_world_to_occ(neighbor))
+# 	if map[int(map_test[0]), int(map_test[1])] != 0:
+# 		n = ((round(x+deltaxy-step,2), round(y-deltaxy+step,2)))
+# 		if n!= coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	elif deltaxy == round(self.lookahead-step,2):
+# 		n = ((round(x+deltaxy,2), round(y-deltaxy,2)))
+# 		lookahead_neighbors.append(n)
+
+#lr
+# for deltaxy in np.linspace(step, self.lookahead-step, self.lookahead/step):
+# 	deltaxy = round(deltaxy, 2)
+# 	neighbor = (round(x-deltaxy, 2), round(y-deltaxy, 2))
+# 	if not (self.x_min <= neighbor[0] <= self.x_max) or not (self.y_min <= neighbor[1] <= self.y_max):
+# 		#out of bounds, add boundary
+# 		n = ((round(x-deltaxy+step,2), round(y-deltaxy+step,2)))
+# 		if n != coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	map_test = (self.real_world_to_occ(neighbor))
+# 	if map[int(map_test[0]), int(map_test[1])] != 0:
+# 		#wall, add boundary
+# 		n = ((round(x-deltaxy+step,2), round(y-deltaxy+step, 2)))
+# 		if n!= coord:
+# 			lookahead_neighbors.append(n)
+# 		break
+# 	elif deltaxy == round(self.lookahead-step,2):
+# 		#lookahead limit, add neighbor here
+# 		n = ((round(x-deltaxy,2), round(y-deltaxy,2)))
+# 		lookahead_neighbors.append(n)
+
+#lr decimal
+# deltaxy = decimal.Decimal(0)
+# while deltaxy < self.lookahead:
+# 	deltaxy += step
+# 	print('deltaxy: ', deltaxy)
+# 	neighbor = (x-deltaxy, y-deltaxy)
+# 	print('neighbor: ', neighbor)
+# 	if not (self.x_min <= neighbor[0] <= self.x_max) or not (self.y_min <= neighbor[1] <= self.y_max):
+# 		#out of bounds, add boundary
+# 		n = ((x-deltaxy+step, y-deltaxy+step))
+# 		if n != coord:
+# 			lookahead_neighbors.add(n)
+# 		break
+# 	map_test = self.real_world_to_occ(neighbor)
+# 	print('map_test: ', map_test)
+# 	if map[int(map_test[0]), int(map_test[1])] != 0:
+# 		#wall, add boundary
+# 		n = (x-deltaxy+step, y-deltaxy+step)
+# 		print('n: ', n)
+# 		if n!= coord:
+# 			lookahead_neighbors.add(n)
+# 		break
+# 	elif deltaxy == self.lookahead-step:
+# 		print('here')
+# 		#lookahead limit, add neighbor here
+# 		n = (x-deltaxy, y-deltaxy)
+# 		lookahead_neighbors.add(n)
