@@ -79,11 +79,7 @@ class PathPlanning:
 				A.drive.steering_angle = u #determines input steering control
 				A.drive.steering_angle_velocity = 0 #determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
 				self.pub.publish(A) #publish steering command
-<<<<<<< HEAD
 				rospy.sleep(.05)
-=======
-				rospy.sleep(.02)
->>>>>>> 3effcba415f4a3b5942f70df5c67ee0938b1247f
 
 	def dist(self, pos1, pos2):
 		return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
