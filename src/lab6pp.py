@@ -43,7 +43,6 @@ class PureP:
         self.position = np.zeros(2)
         self.path = 0
         self.HAVE_PATH = False
-
         print "Pure Pursuit initialized"
 
 
@@ -65,6 +64,8 @@ class PureP:
 
             dists = np.einsum('ij,ij->i',d,d)
             i = np.argmin(dists) #index of closest waypoint
+	    if i > len(self.path) - 40:
+	        self.path += self.path
             try:
                 path_remaining = d[i:i+25,:] #cuts off prior waypoints already passed
                 dists_remaining = dists[i:i+25]

@@ -3,7 +3,7 @@
 
 	<arg name="lookahead" default="1.5"/>
 	<arg name="max_reacquire" default="3.0"/>
-	<arg name="velocity" default="1"/>
+	<arg name="velocity" default=".5"/>
 
 	<arg name="odom_topic" default="/pf/pose/odom"/>
 

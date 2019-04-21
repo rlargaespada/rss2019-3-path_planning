@@ -2,7 +2,6 @@
 """
     RSS 2019 | rrt.py
     Implementation of RRT* (Rapidly exploring Random Trees) with path smoothing
-
     Authors: Abbie Lee (abbielee@mit.edu) and Alex Cuellar (alexcuel@mit.edu)
 """
 import rospy
@@ -48,7 +47,7 @@ class RRTstar:
         self.map_name = rospy.get_param("~map")
         self.origin_x_offset = rospy.get_param("~origin_x_offset")
         self.origin_y_offset = rospy.get_param("~origin_y_offset")
-        self.POSE_PATH_TOPIC = rospy.get_param("~path_topic")
+        self.POSE_PATH_TOPIC = rospy.get_param("~path_send_topic")
 
         #Initialize visualization varibles
         self.cloud = PointCloud()
@@ -79,7 +78,7 @@ class RRTstar:
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
         self.tree_pub = rospy.Publisher(self.TREE_TOPIC, Marker, queue_size=10)
         # self.path_publisher = rospy.Publisher(self.PATH_TOPIC, Path, queue_size=10)
-        self.final_path_pub = rospy.Publisher("/test_path", PointCloud, queue_size=10)
+        self.full_path_pub = rospy.Publisher(self.POSE_PATH_TOPIC, PointCloud, queue_size=10)
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
         rospy.Subscriber(self.GOAL_TOPIC, PoseStamped, self.set_goal)
 
@@ -172,7 +171,8 @@ class RRTstar:
                                 }
             self.map_flip_const = 1.
 
-        self.full_pose_path = []
+        self.full_node_path = []
+        # self.full_pose_path = []
         for checkpoint in range(self.NUM_GOAL_REGIONS):
             self.start_pose = self.checkpoints[checkpoint]
             self.start_node = Node(self.start_pose, start=True)
@@ -186,11 +186,28 @@ class RRTstar:
             self.current = self.start_node
             self.nodes.append(self.start_node)
             self.tree_insert(self.start_node)
-            next_path = self.run_rrt()
-            self.full_pose_path.extend(next_path)
-        print(self.full_pose_path)
-        self.create_PointCloud_pose(self.full_pose_path, self.final_path_pub)
-        print("HIIIIIIIIII")
+            next_path = self.run_rrt() # list of nodes
+            # self.full_pose_path.extend(next_path)
+            if self.full_node_path != []:
+                next_path[0].set_parent(self.full_node_path[-1])
+            self.full_node_path.extend(next_path)
+
+        print "Len path:", len(self.full_node_path)
+
+        for node in self.full_node_path[4:]:
+            self.check_ancestors(node)
+
+        self.final_path = self.plan_node_path(self.full_node_path[-1])
+        start = self.final_path[0]
+        end = self.final_path[-1]
+        start.set_parent(end)
+
+        # make path between start and end
+        loop_path = self.create_path(end, start.pose)
+        start.set_path(loop_path)
+
+        self.full_pose_path = self.plan_pose_path(self.final_path)
+        self.create_PointCloud_pose(self.full_pose_path, self.full_path_pub)
         # self.draw_path(self.full_pose_path)
 
     def run_rrt(self):
@@ -214,7 +231,7 @@ class RRTstar:
                 self.nodes.append(self.end_node)
                 self.node_path = self.plan_node_path(self.end_node)
 
-                self.max_iter = 1.5*self.counter # run for 1.5 the amount of time it took to find goal in order to optimize
+                self.max_iter = 1.3*self.counter # run for 1.5 the amount of time it took to find goal in order to optimize
                 already_found = True
 
             # Get a random pose sample
@@ -225,7 +242,7 @@ class RRTstar:
                 next_pose = self.optimize_path_next()
                 #Create path of poses from the node_path
                 self.node_path = self.plan_node_path(self.end_node)
-                self.pose_path = self.plan_pose_path()
+                self.pose_path = self.plan_pose_path(self.node_path)
                 self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
             #Get the closest node to our sample
             closest_multiple = self.find_nearest_node(next_pose)
@@ -262,13 +279,11 @@ class RRTstar:
         self.node_path = self.plan_node_path(self.end_node)
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
-        self.pose_path = self.plan_pose_path()
+        self.pose_path = self.plan_pose_path(self.node_path)
         self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
         print "Length of path:", len(self.pose_path)
-        
-        self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
-        # self.draw_path(self.pose_path)
-        return self.pose_path
+        # return self.pose_path
+        return self.node_path
 
     def steer(self, start_node, next_pose):
         """
@@ -294,7 +309,7 @@ class RRTstar:
         x_vals = np.arange(start_node.pose[0], next_pose[0], dx)
         y_vals = np.arange(start_node.pose[1], next_pose[1], dy)
         theta_vals = np.tile(theta, x_vals.size)
-        path = np.column_stack((x_vals, y_vals, theta_vals))
+        path = np.column_stack((x_vals, y_vals, theta_vals)).tolist()
         return path
 
     def get_next(self):
@@ -436,7 +451,6 @@ class RRTstar:
                 possible_path = self.create_path(curr, n.pose)
                 if not self.in_collision(possible_path):
                     possible_cost = self.get_cost(possible_path) + curr.cost
-                    
                     if possible_cost < n.cost:
                         # set parent of neighbor to current node
                         n.set_parent(curr)
@@ -448,18 +462,21 @@ class RRTstar:
         Input: Node object
         Output: list of Node objects from parent to child
         """
-        if node == None:
+        if node.parent == None:
             return []
         return self.plan_node_path(node.parent) + [node]
 
-    def plan_pose_path(self):
+    def plan_pose_path(self, node_path):
         '''
-        Input: None
+        Input: List of Node objects representing a path
         Output: List of poses from first Node in self.node_path to
                 lst node in self.node_path
         '''
 
-        path = np.vstack([x.path for x in self.node_path[1:]])
+        # path = np.vstack([x.path for x in node_path[1:]])
+        path = []
+        for x in node_path:
+            path += x.path
         return path
 
     def check_ancestors(self, node):
@@ -479,7 +496,7 @@ class RRTstar:
                 # print("CONNECT WITH YOUR ROOTS")
                 node.set_parent(grandparent)
                 node.set_path(path)
-                node.set_cost(cost)
+                node.set_cost(cost+grandparent.cost)
 
     def create_PointCloud(self, nodes):
         '''
@@ -492,7 +509,6 @@ class RRTstar:
             self.cloud.points[node].y = nodes[node].pose[1]
             self.cloud.points[node].z = 0
         self.particle_cloud_publisher.publish(self.cloud)
-
 
     def create_PointCloud_pose(self, nodes, pub):
         '''
