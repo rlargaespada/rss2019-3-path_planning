@@ -10,11 +10,11 @@ import rospy
 from rospy.numpy_msg import numpy_msg
 from std_msgs.msg import Float32
 from ackermann_msgs.msg import AckermannDriveStamped
-import utils
 from geometry_msgs.msg import Point32
 from visualization_msgs.msg import Marker
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point
+from geometry_msgs.msg import PoseStamped
 #from nav_msgs.msg import Path
 import numpy as np
 import warnings
@@ -29,11 +29,11 @@ class PureP:
     PATH_TOPIC = rospy.get_param("/Trajectory_follower/path_topic")
     DRIVE_TOPIC = rospy.get_param("/Trajectory_follower/drive_topic")
     VELOCITY = float(rospy.get_param("/Trajectory_follower/velocity"))  # [m/s]
-    local_topic = "/estim_pose"
+    local_topic = "/pf/viz/inferred_pose"
 
     def __init__(self):
         #subs
-        self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=10)
+        self.pose_sub = rospy.Subscriber(self.local_topic,PoseStamped,self.pose_callback,queue_size=10)
         # self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         # pubs
@@ -55,7 +55,7 @@ class PureP:
                         velocity [m/s]
         '''
         if self.HAVE_PATH:
-            self.position = np.array([data.x,data.y,data.z]) #sets global position variable
+            self.position = np.array([data.pose.position.x,data.pose.position.y, 2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
             pos_map = self.position[0:2] #keeps track of x,y for path transform
             data_vec = self.path #imports global path
             if self.path==0: #checks that path has been received
