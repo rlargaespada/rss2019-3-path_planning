@@ -83,11 +83,11 @@ class PureP:
             #dynamic lookahead distance
             v = self.VELOCITY
             if v<1:
-                l=2
-            elif 1<v<5:
+                l=1
+            elif 1<=v<=5:
                 l=v/5+1
             else:
-                l=v/2
+                l=v/3 #be careful, still overshoots!
 
             straight_line_condition = False
             #find point in path one lookahead distance out
