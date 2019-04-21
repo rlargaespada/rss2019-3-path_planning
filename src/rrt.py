@@ -79,6 +79,7 @@ class RRTstar:
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
         self.tree_pub = rospy.Publisher(self.TREE_TOPIC, Marker, queue_size=10)
         self.path_publisher = rospy.Publisher(self.PATH_TOPIC, Path, queue_size=10)
+        self.full_path_pub = rospy.Publisher(self.POSE_PATH_TOPIC, PointCloud, queue_size=10)
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
         rospy.Subscriber(self.GOAL_TOPIC, PoseStamped, self.set_goal)
 
@@ -186,6 +187,7 @@ class RRTstar:
             self.current = self.start_node
             self.nodes.append(self.start_node)
             self.tree_insert(self.start_node)
+<<<<<<< HEAD
             next_path = self.run_rrt() # list of nodes
             # self.full_pose_path.extend(next_path)
             if self.full_node_path != []:
@@ -209,6 +211,12 @@ class RRTstar:
         self.full_pose_path = self.plan_pose_path(self.final_path)
         self.create_PointCloud_pose(self.full_pose_path)
         self.draw_path(self.full_pose_path)
+=======
+            next_path = self.run_rrt()
+            self.full_pose_path.extend(next_path)
+        self.create_PointCloud_pose(self.full_pose_path, self.full_path_pub)
+        # self.draw_path(self.full_pose_path)
+>>>>>>> simple pure pursuit and rrt
 
     def run_rrt(self):
         '''
@@ -242,8 +250,13 @@ class RRTstar:
                 next_pose = self.optimize_path_next()
                 #Create path of poses from the node_path
                 self.node_path = self.plan_node_path(self.end_node)
+<<<<<<< HEAD
                 self.pose_path = self.plan_pose_path(self.node_path)
                 self.create_PointCloud_pose(self.pose_path)
+=======
+                self.pose_path = self.plan_pose_path()
+                self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
+>>>>>>> simple pure pursuit and rrt
             #Get the closest node to our sample
             closest_multiple = self.find_nearest_node(next_pose)
             #Get actual pose for node
@@ -279,8 +292,13 @@ class RRTstar:
         self.node_path = self.plan_node_path(self.end_node)
         self.create_PointCloud(self.node_path)
         #Create path of poses from the node_path
+<<<<<<< HEAD
         self.pose_path = self.plan_pose_path(self.node_path)
         self.create_PointCloud_pose(self.pose_path)
+=======
+        self.pose_path = self.plan_pose_path()
+        self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
+>>>>>>> simple pure pursuit and rrt
         print "Length of path:", len(self.pose_path)
         # return self.pose_path
         return self.node_path
@@ -510,7 +528,7 @@ class RRTstar:
             self.cloud.points[node].z = 0
         self.particle_cloud_publisher.publish(self.cloud)
 
-    def create_PointCloud_pose(self, nodes):
+    def create_PointCloud_pose(self, nodes, pub):
         '''
         Create and publish point cloud of particles and current pose marker
         '''
@@ -520,7 +538,7 @@ class RRTstar:
             self.cloud.points[node].x = nodes[node][0]
             self.cloud.points[node].y = nodes[node][1]
             self.cloud.points[node].z = 0
-        self.particle_cloud_publisher.publish(self.cloud)
+        pub.publish(self.cloud)
 
     def create_vistree(self):
         """
