@@ -170,8 +170,6 @@ class AStar:
         # print(map_msg.info.resolution, map_msg.info.origin.position.x, map_msg.info.origin.position.y)
         self.map_graph.build_map(self.map, self.map_name, map_msg.info.resolution, self.origin)
         # self.save_graph()
-        
-        #convert map so that large empty cells are consolidated
 
         self.map_loaded = True
         print("yay, we built the graph!")
@@ -180,7 +178,7 @@ class AStar:
 
         while len(self.goal_list)>0:
             self.goal_pose = self.goal_list.pop(0)
-            #self.map_graph.insert_node(self.goal_pose[:2])
+            self.map_graph.insert_node(self.goal_pose[:2])
             self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
             # print(self.path)
             #self.path = self.smooth_path()
@@ -197,18 +195,18 @@ class AStar:
             self.particle_cloud_publisher.publish(self.cloud)
             # print("there should be a motherfucking particle cloud")
 
-    def save_graph(self):
-        with open(self.map_file, 'wb') as f:
-            pickle.dump(self.map_graph,f)
+    # def save_graph(self):
+    #     with open(self.map_file, 'wb') as f:
+    #         pickle.dump(self.map_graph,f)
 
-    def check_if_graph(self):
-        try:
-            with open(self.map_file) as f:
-                graph = pickle.load(f)
-            return graph
+    # def check_if_graph(self):
+    #     try:
+    #         with open(self.map_file) as f:
+    #             graph = pickle.load(f)
+    #         return graph
 
-        except:
-            return None
+    #     except:
+    #         return None
 
     # def smooth_path(self):
     #     path = []

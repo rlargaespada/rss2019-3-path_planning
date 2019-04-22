@@ -31,12 +31,12 @@ map = np.array([
 #(7, 4) {(8, 3), (4, 7), (7, 1), (4, 4), (8, 5), (7, 7), (4, 1), (8, 4)}
 map = np.concatenate((np.concatenate((map, np.flipud(map)), 0), np.fliplr(np.concatenate((map, np.flipud(map)), 0))), 1)
 #print(map)
-start = (4,4)
-goal = (9,9)
-g = graph.Graph(start, goal)#, .1) #inputs should be rw
+start = (-0.05, 0.05) #(4,4)
+goal = (-0.3, -0.2) #(9,9)
+g = graph.Lookahead_Graph(start, goal, .4) #inputs should be rw
 # g.test_setup((.15, .25), .05, map)
-# c = g.occ_to_real_world((9,9))
-#print('c ', c)
+# c = g.occ_to_real_world(start)
+# print('c ', c)
 # r = (g.get_lookahead_neighbors(c, map))
 # print(r)
 # o = {g.real_world_to_occ(p) for p in r}

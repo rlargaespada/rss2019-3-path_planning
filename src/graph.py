@@ -258,8 +258,8 @@ class Lookahead_Graph(Graph):
 		self.x_max, self.y_max = self.occ_to_real_world((0,0))
 		self.x_min, self.y_min = self.occ_to_real_world((map.shape[0]-1,map.shape[1]-1))
 
-		self.start = self.occ_to_real_world(self.start)
-		self.goal = self.occ_to_real_world(self.goal)
+		# self.start = self.occ_to_real_world(self.start)
+		# self.goal = self.occ_to_real_world(self.goal)
 		
 		# fn = str(name)+'.json'
 		# try: 
