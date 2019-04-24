@@ -42,6 +42,7 @@ class AStar:
         self.map_name = rospy.get_param("~map")
         self.origin_x_offset = rospy.get_param("~origin_x_offset")
         self.origin_y_offset = rospy.get_param("~origin_y_offset")
+        self.path_step = 0.05
 
         self.goal_list = []
 
@@ -59,7 +60,7 @@ class AStar:
 
         # initialize publishers and subscribers
         self.particle_cloud_publisher = rospy.Publisher(self.PARTICLE_CLOUD_TOPIC, PointCloud, queue_size=10)
-        self.path_publisher = rospy.Publisher(self.PATH_TOPIC, Path, queue_size=10)
+        self.path_publisher = rospy.Publisher(self.PATH_TOPIC, PointCloud, queue_size=10)
 
 
         rospy.Subscriber(self.START_TOPIC, PoseWithCovarianceStamped, self.set_start)
@@ -96,7 +97,7 @@ class AStar:
         Gets goal pose from rviz nav goal marker.
         """
         x, y = goal_pose.pose.position.x, goal_pose.pose.position.y
-        goal = [round(x, 1), round(y, 1), 0]
+        goal = [round(x*2, 0)/2., round(y*2, 0)/2., 0]
 
         self.goal_pose = goal
         self.goal_list.append(goal)
@@ -113,9 +114,10 @@ class AStar:
         # self.start_pose = self.real_world_to_occ(self.start_pose, map_msg.info.resolution, map_msg.info.origin)
         # self.goal_pose = self.real_world_to_occ(self.goal_pose, map_msg.info.resolution, map_msg.info.origin)
 
-        self.start_pose = (round(self.start_pose[0], 1), round(self.start_pose[1], 1))
-        self.goal_pose = (round(self.goal_pose[0], 1), round(self.goal_pose[1], 1))
+        self.start_pose = (round(self.start_pose[0]*2, 0)/2., round(self.start_pose[1]*2, 0)/2.)
+        self.goal_pose = (round(self.goal_pose[0]*2, 0)/2., round(self.goal_pose[1]*2, 0)/2.)
         print(self.start_pose, self.goal_pose)
+        time1 = rospy.get_time()
 
         # print "Loading map:", rospy.get_param("~map"), "..."
         # print "Start and Goal intialized:"
@@ -166,7 +168,7 @@ class AStar:
         # if self.map_graph == None:
             #map is an array of zeros and ones, convert into graph
         lookahead = 1 # m
-        self.map_graph = graph.Lookahead_Graph(self.start_pose[:2], self.goal_pose[:2], lookahead)
+        self.map_graph = graph.Graph(tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
         # print(map_msg.info.resolution, map_msg.info.origin.position.x, map_msg.info.origin.position.y)
         self.map_graph.build_map(self.map, self.map_name, map_msg.info.resolution, self.origin)
         # self.save_graph()
@@ -174,11 +176,11 @@ class AStar:
         self.map_loaded = True
         print("yay, we built the graph!")
 
-        print(self.goal_list)
-
+        # print(self.goal_list)
+        time2 = rospy.get_time()
         while len(self.goal_list)>0:
             self.goal_pose = self.goal_list.pop(0)
-            self.map_graph.insert_node(self.goal_pose[:2])
+            # self.map_graph.insert_node(self.goal_pose[:2])
             self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
             # print(self.path)
             #self.path = self.smooth_path()
@@ -186,11 +188,22 @@ class AStar:
             
             # self.pos_path = self.create_pose_path()
             # self.draw_path()
+        print(time2-time1)
+        print(rospy.get_time()-time2)
+
         print("       ")
         print("       ")
         print("       ")
-        print(self.path)
+        print(len(self.path))
+        cost = 0
+        for i in range(len(self.path)-1):
+            cost += self.map_graph.cost(self.path[i], self.path[i+1])
+        print(cost)
+        # print(self.path)
+        #self.interpolate_path()
         self.PointCloud_path(self.path)
+        self.path_publisher.publish(self.cloud)
+
         while True:
             self.particle_cloud_publisher.publish(self.cloud)
             # print("there should be a motherfucking particle cloud")
@@ -212,23 +225,52 @@ class AStar:
     #     path = []
     #     return path
 
-    def create_pose_path(self):
-        pose_path = []
-        for p in range(len(self.path)-1):
-            pose = self.steer(self.path[p], self.path[p+1])
-            pose_path.append(pose)
+    # def create_pose_path(self):
+    #     pose_path = []
+    #     for p in range(len(self.path)-1):
+    #         pose = self.steer(self.path[p], self.path[p+1])
+    #         pose_path.append(pose)
             
-        return pose_path
+    #     return pose_path
 
-    def steer(self, start_node, next_pose):
-        """
-        Input: Parent node and proposed next pose [x, y]
-        Output: the actual next pose [x, y, theta] (theta in direction of movement)
-        """
-        x = start_node[0] + (next_pose[0] - start_node[0])
-        y = start_node[1] + (next_pose[1] - start_node[1])
-        theta = np.arctan2(y, x)
-        return [x, y, theta]
+    # def steer(self, start_node, next_pose):
+    #     """
+    #     Input: Parent node and proposed next pose [x, y]
+    #     Output: the actual next pose [x, y, theta] (theta in direction of movement)
+    #     """
+    #     x = start_node[0] + (next_pose[0] - start_node[0])
+    #     y = start_node[1] + (next_pose[1] - start_node[1])
+    #     theta = np.arctan2(y, x)
+    #     return [x, y, theta]
+
+    def get_dist(self, pos1, pos2):
+        return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
+
+    def create_path(self, start_node, next_node):
+        '''
+        Input: Parent node and proposed next pose [x, y, theta]
+        Output: configurations with distance path_step between them
+        '''
+        path = []
+        dist_ratio = self.path_step/self.get_dist(start_node, next_node)
+        dx = (next_node[0] - start_node[0])*dist_ratio
+        dy = (next_node[1] - start_node[1])*dist_ratio
+        print dx
+        theta = np.arctan2(dy, dx)
+        x_vals = np.arange(start_node[0], next_node[0], dx)
+        y_vals = np.arange(start_node[1], next_node[1], dy)
+        theta_vals = np.tile(theta, x_vals.size)
+        path = np.column_stack((x_vals, y_vals, theta_vals)).tolist()
+        return path
+
+    def interpolate_path(self):
+        for i in range(len(self.raw_path)-1):
+            current_p = self.raw_path[i]
+            next_p = self.raw_path[i+1]
+            interpolated_path = self.create_path(current_p, next_p)
+            for p in interpolated_path:
+                self.path.append(p[:2])
+
 
     def PointCloud_path(self, points):
         self.cloud.header.frame_id = "/map"
@@ -239,31 +281,31 @@ class AStar:
             self.cloud.points[point].y = points[point][1]
             self.cloud.points[point].z = 0
 
-    def draw_path(self):
-        header = Header()
-        path = Path()
-        header.stamp = rospy.rostime.Time.now()
-        header.frame_id = "/map"
-        pose_stamp = PoseStamped()
-        pose_stamp.header = header
-        for pos in self.pos_path:
-            point = Point()
-            point.x = pos[0]
-            point.y = pos[1]
-            point.z = pos[2]
-            orient = Quaternion()
-            quat = tf.transformations.quaternion_from_euler(0, 0,pos[2])
-            orient.x = quat[0]
-            orient.y = quat[1]
-            orient.z = quat[2]
-            orient.w = quat[3]
-            pose = Pose()
-            pose.position = point
-            pose.orientation = orient
-            pose_stamp.pose = pose
-            path.poses.append(pose_stamp)
-        path.header = pose_stamp.header
-        self.path_publisher.publish(path)
+    # def draw_path(self):
+    #     header = Header()
+    #     path = Path()
+    #     header.stamp = rospy.rostime.Time.now()
+    #     header.frame_id = "/map"
+    #     pose_stamp = PoseStamped()
+    #     pose_stamp.header = header
+    #     for pos in self.pos_path:
+    #         point = Point()
+    #         point.x = pos[0]
+    #         point.y = pos[1]
+    #         point.z = pos[2]
+    #         orient = Quaternion()
+    #         quat = tf.transformations.quaternion_from_euler(0, 0,pos[2])
+    #         orient.x = quat[0]
+    #         orient.y = quat[1]
+    #         orient.z = quat[2]
+    #         orient.w = quat[3]
+    #         pose = Pose()
+    #         pose.position = point
+    #         pose.orientation = orient
+    #         pose_stamp.pose = pose
+    #         path.poses.append(pose_stamp)
+    #     path.header = pose_stamp.header
+    #     self.path_publisher.publish(path)
 
 
 if __name__ == "__main__":
