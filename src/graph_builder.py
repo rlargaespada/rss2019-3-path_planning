@@ -127,7 +127,7 @@ class AStar:
         print "Loading map:", rospy.get_param("~map"), "..."
         print "Start and Goal intialized:"
         print "Start: ", self.start_pose
-        print "Goal: ", self.goal_pose
+        #print "Goal: ", self.goal_pose
         # Convert the map to a numpy array
         map_ = np.array(map_msg.data, np.double)
         map_ = np.clip(map_, 0, 1)
@@ -179,20 +179,19 @@ class AStar:
         if not self.path_from_file:
             #run astar to create path
             confirm = raw_input('Have you finished setting goal points? Enter any key to confirm.')
-	        time2 = rospy.get_time()
-	        while len(self.goal_list)>0:
-	            self.goal_pose = self.goal_list.pop(0)
-	            self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
-	            self.start_pose = self.goal_pose
-	            
-	        print(time2-time1)
-	        print(rospy.get_time()-time2)
-
-	        #saving path to txt file
-	        with open(path_fn, 'w') as f:
-	        	for coord in self.path:
-	        		f.write("{}\n".format(coord))
-	        	print 'written path to ' + path_fn
+            time2 = rospy.get_time()
+            while len(self.goal_list)>0:
+                self.goal_pose = self.goal_list.pop(0)
+                self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
+                self.start_pose = self.goal_pose
+            
+            print(time2-time1)
+            print(rospy.get_time()-time2)
+            #saving path to txt file
+            with open(path_fn, 'w') as f:
+            	for coord in self.path:
+            		f.write("{}\n".format(coord))
+            	print 'written path to ' + path_fn
         else:
             #load path from txt file
 	    	self.path = []
