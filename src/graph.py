@@ -53,21 +53,23 @@ class Graph(object):
 		y = round((-coord[1]*self.resolution + self.origin[1]), 1)
 		return (x,y)
 
-	def build_map(self, map, name, resolution, origin):
+	def build_map(self, map, name, resolution, origin, from_file):
 		fn = str(name)+str(self.map_resolution)+'.p'
-		try: 
-			with open(fn, 'rb') as fp:
-				print 'loading graph from ' + fn
-				data = pickle.load(fp)
-				self.neighbors = data
-				self.nodes = set(self.neighbors.keys())
-			return
-		except:
-			pass
 		self.resolution = resolution
 		self.origin = origin
 		self.x_max = map.shape[0]-1
 		self.y_max = map.shape[1]-1
+
+		if from_file:
+			try: 
+				with open(fn, 'rb') as fp:
+					print 'loading graph from ' + fn
+					data = pickle.load(fp)
+					self.neighbors = data
+					self.nodes = set(self.neighbors.keys())
+				return
+			except:
+				print 'failed to load map from file, generating and saving from scratch'
 
 		for x in range(0, self.x_max+1, 1):
 			for y in range(0, self.y_max+1, 1):
@@ -89,9 +91,9 @@ class Graph(object):
 			pickle.dump(self.neighbors, fp, protocol=pickle.HIGHEST_PROTOCOL)
 		return
 
-	def heuristic(self, node1):
+	def heuristic(self, node1, node2):
 		point1 = node1
-		point2 = self.goal
+		point2 = node2
 		return ((point1[0]-point2[0])**2+(point1[1]-point2[1])**2)**(0.5)
 
 class Lookahead_Graph(Graph):

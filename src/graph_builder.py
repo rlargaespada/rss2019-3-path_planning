@@ -12,7 +12,6 @@ from std_msgs.msg import Header
 import matplotlib.pyplot as plt
 import graph
 import search
-import json
 
 class AStar:
     """
@@ -39,6 +38,8 @@ class AStar:
         self.map_name = rospy.get_param("~map")
         self.origin_x_offset = rospy.get_param("~origin_x_offset")
         self.origin_y_offset = rospy.get_param("~origin_y_offset")
+        self.map_from_file = rospy.get_param("~map_from_file")
+        self.path_from_file = rospy.get_param("~path_from_file")
         self.path_step = 0.05
 
         self.goal_list = []
@@ -107,10 +108,14 @@ class AStar:
         self.goal_region["ymax"] = y+r
 
     def map_callback(self, map_msg):
-        while self.start_pose == [0, 0, 0] or self.goal_pose == [0, 0, 0]:
+        while self.start_pose == [0, 0, 0]:# or self.goal_pose == [0, 0, 0]:
             continue
-        # self.start_pose = self.real_world_to_occ(self.start_pose, map_msg.info.resolution, map_msg.info.origin)
-        # self.goal_pose = self.real_world_to_occ(self.goal_pose, map_msg.info.resolution, map_msg.info.origin)
+
+        while self.goal_pose == [0,0,0]:
+            if self.path_from_file:
+                break      
+
+
 
         #self.start_pose = (round(self.start_pose[0]*2, 0)/2., round(self.start_pose[1]*2, 0)/2.)
         self.start_pose = (round(self.start_pose[0], 1), round(self.start_pose[1], 1))
@@ -119,10 +124,10 @@ class AStar:
         print(self.start_pose, self.goal_pose)
         time1 = rospy.get_time()
 
-        # print "Loading map:", rospy.get_param("~map"), "..."
-        # print "Start and Goal intialized:"
-        # print "Start: ", self.start_pose
-        # print "Goal: ", self.goal_pose
+        print "Loading map:", rospy.get_param("~map"), "..."
+        print "Start and Goal intialized:"
+        print "Start: ", self.start_pose
+        print "Goal: ", self.goal_pose
         # Convert the map to a numpy array
         map_ = np.array(map_msg.data, np.double)
         map_ = np.clip(map_, 0, 1)
@@ -162,56 +167,40 @@ class AStar:
                                 }
             self.map_flip_const = 1.
 
-        print(self.origin)
-
-        # self.map_graph = self.check_if_graph()
-        # if self.map_graph == None:
-            #map is an array of zeros and ones, convert into graph
-        lookahead = 1 # m
+        #map is an array of zeros and ones, convert into graph
         self.map_graph = graph.Graph(tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
         # print(map_msg.info.resolution, map_msg.info.origin.position.x, map_msg.info.origin.position.y)
-        self.map_graph.build_map(self.map, self.map_name, map_msg.info.resolution, self.origin)
-        # self.save_graph()
+        self.map_graph.build_map(self.map, self.map_name, map_msg.info.resolution, self.origin, self.map_from_file)
 
         self.map_loaded = True
         print("yay, we built the graph!")
-        confirm = raw_input('Have you finished setting goal points? Enter any key to confirm.')
 
-        # print(self.goal_list)
         path_fn = './astar_path.txt'
-        path_load = raw_input('Do you want to load a path from a file? If so enter `y`.')
-        if path_load != 'y':
+        if not self.path_from_file:
+            #run astar to create path
+            confirm = raw_input('Have you finished setting goal points? Enter any key to confirm.')
 	        time2 = rospy.get_time()
 	        while len(self.goal_list)>0:
 	            self.goal_pose = self.goal_list.pop(0)
-	            # self.map_graph.insert_node(self.goal_pose[:2])
 	            self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
-	            # print(self.path)
-	            #self.path = self.smooth_path()
 	            self.start_pose = self.goal_pose
 	            
-	            # self.pos_path = self.create_pose_path()
-	            # self.draw_path()
 	        print(time2-time1)
 	        print(rospy.get_time()-time2)
 
-	                #saving path to txt file
+	        #saving path to txt file
 	        with open(path_fn, 'w') as f:
-	        	#json.dumps(self.path, f)
 	        	for coord in self.path:
 	        		f.write("{}\n".format(coord))
 	        	print 'written path to ' + path_fn
-
-
         else:
+            #load path from txt file
 	    	self.path = []
 	    	with open(path_fn, 'r') as f:
 	    		print 'opened path from ' + path_fn
 	    		for coord in f:
 	    			t = tuple(float(c) for c in coord[1:-2].split(','))
 	    			self.path.append(t)
-
-
 
         print("       ")
         print(len(self.path))
@@ -220,61 +209,12 @@ class AStar:
             cost += self.map_graph.cost(self.path[i], self.path[i+1])
         print(cost)
 
-
-
         self.PointCloud_path(self.path)
         self.path_publisher.publish(self.cloud)
 
         while True:
             self.particle_cloud_publisher.publish(self.cloud)
             # print("there should be a motherfucking particle cloud")
-
-    # def create_pose_path(self):
-    #     pose_path = []
-    #     for p in range(len(self.path)-1):
-    #         pose = self.steer(self.path[p], self.path[p+1])
-    #         pose_path.append(pose)
-            
-    #     return pose_path
-
-    # def steer(self, start_node, next_pose):
-    #     """
-    #     Input: Parent node and proposed next pose [x, y]
-    #     Output: the actual next pose [x, y, theta] (theta in direction of movement)
-    #     """
-    #     x = start_node[0] + (next_pose[0] - start_node[0])
-    #     y = start_node[1] + (next_pose[1] - start_node[1])
-    #     theta = np.arctan2(y, x)
-    #     return [x, y, theta]
-
-    def get_dist(self, pos1, pos2):
-        return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
-
-    def create_path(self, start_node, next_node):
-        '''
-        Input: Parent node and proposed next pose [x, y, theta]
-        Output: configurations with distance path_step between them
-        '''
-        path = []
-        dist_ratio = self.path_step/self.get_dist(start_node, next_node)
-        dx = (next_node[0] - start_node[0])*dist_ratio
-        dy = (next_node[1] - start_node[1])*dist_ratio
-        print dx
-        theta = np.arctan2(dy, dx)
-        x_vals = np.arange(start_node[0], next_node[0], dx)
-        y_vals = np.arange(start_node[1], next_node[1], dy)
-        theta_vals = np.tile(theta, x_vals.size)
-        path = np.column_stack((x_vals, y_vals, theta_vals)).tolist()
-        return path
-
-    def interpolate_path(self):
-        for i in range(len(self.raw_path)-1):
-            current_p = self.raw_path[i]
-            next_p = self.raw_path[i+1]
-            interpolated_path = self.create_path(current_p, next_p)
-            for p in interpolated_path:
-                self.path.append(p[:2])
-
 
     def PointCloud_path(self, points):
         self.cloud.header.frame_id = "/map"
