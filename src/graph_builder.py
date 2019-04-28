@@ -97,7 +97,8 @@ class AStar:
         Gets goal pose from rviz nav goal marker.
         """
         x, y = goal_pose.pose.position.x, goal_pose.pose.position.y
-        goal = [round(x*2, 0)/2., round(y*2, 0)/2., 0]
+        #goal = [round(x*2, 0)/2., round(y*2, 0)/2., 0]
+        goal = [round(x, 1), round(y, 1), 0]
 
         self.goal_pose = goal
         self.goal_list.append(goal)
@@ -114,8 +115,10 @@ class AStar:
         # self.start_pose = self.real_world_to_occ(self.start_pose, map_msg.info.resolution, map_msg.info.origin)
         # self.goal_pose = self.real_world_to_occ(self.goal_pose, map_msg.info.resolution, map_msg.info.origin)
 
-        self.start_pose = (round(self.start_pose[0]*2, 0)/2., round(self.start_pose[1]*2, 0)/2.)
-        self.goal_pose = (round(self.goal_pose[0]*2, 0)/2., round(self.goal_pose[1]*2, 0)/2.)
+        #self.start_pose = (round(self.start_pose[0]*2, 0)/2., round(self.start_pose[1]*2, 0)/2.)
+        self.start_pose = (round(self.start_pose[0], 1), round(self.start_pose[1], 1))
+        #self.goal_pose = (round(self.goal_pose[0]*2, 0)/2., round(self.goal_pose[1]*2, 0)/2.)
+        self.goal_pose = (round(self.goal_pose[0], 1), round(self.goal_pose[1], 1))
         print(self.start_pose, self.goal_pose)
         time1 = rospy.get_time()
 
@@ -175,6 +178,7 @@ class AStar:
 
         self.map_loaded = True
         print("yay, we built the graph!")
+        confirm = raw_input('Have you finished setting goal points? Enter any key to confirm.')
 
         # print(self.goal_list)
         time2 = rospy.get_time()

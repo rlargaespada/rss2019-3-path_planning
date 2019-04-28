@@ -1,5 +1,9 @@
 import json
 import numpy as np
+try:
+	import cPickle as pickle
+except:
+	import pickle
 #import decimal
 
 class Graph(object):
@@ -12,6 +16,7 @@ class Graph(object):
 		self.y_max = None
 		self.resolution = None
 		self.origin = tuple()
+		self.map_resolution = '0.1m'
 
 	def cost(self, p1, p2):
 		return ((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)**(0.5)
@@ -41,20 +46,24 @@ class Graph(object):
 		return neighbors
 
 	def occ_to_real_world(self, coord):
-		x = round((-coord[0]*self.resolution + self.origin[0])*2, 0)/2.
-		y = round((-coord[1]*self.resolution + self.origin[1])*2, 0)/2.
+		#x = round((-coord[0]*self.resolution + self.origin[0])*2, 0)/2.
+		x = round((-coord[0]*self.resolution + self.origin[0]), 1)
+		#y = round((-coord[1]*self.resolution + self.origin[1])*2, 0)/2.
+		y = round((-coord[1]*self.resolution + self.origin[1]), 1)
 		return (x,y)
 
 	def build_map(self, map, name, resolution, origin):
-		#fn = str(name)+'.json'
-		# try: 
-		# 	with open(fn, 'r') as fp:
-		# 		data = json.load(fp)
-		# 	self.neighbors = data
-		# 	self.nodes = set(self.neighbors.keys())
-		# 	return
-		# except:
-		# 	pass
+		fn = str(name)+str(self.map_resolution)+'.p'
+		try: 
+			with open(fn, 'rb') as fp:
+				data = pickle.load(fp)
+			# with open(fn, 'r') as fp:
+			# 	data = json.load(fp)
+				self.neighbors = data
+				self.nodes = set(self.neighbors.keys())
+			return
+		except:
+			pass
 		self.resolution = resolution
 		self.origin = origin
 		self.x_max = map.shape[0]-1
@@ -74,10 +83,13 @@ class Graph(object):
 								rwcoord = self.occ_to_real_world(coord)
 								self.add_node(rwcoord)
 								self.add_edge(rwpose, rwcoord)
+		print 'saving graph'
 
+		with open(fn, 'wb') as fp:
+			pickle.dump(self.neighbors, fp, protocol=pickle.HIGHEST_PROTOCOL)
 		# with open(fn, 'w') as fp:
 		# 	json.dump(self.neighbors, fp)
-		# return
+		return
 
 	def heuristic(self, node1):
 		point1 = node1
