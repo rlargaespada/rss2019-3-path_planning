@@ -56,9 +56,8 @@ class Graph(object):
 		fn = str(name)+str(self.map_resolution)+'.p'
 		try: 
 			with open(fn, 'rb') as fp:
+				print 'loading graph from ' + fn
 				data = pickle.load(fp)
-			# with open(fn, 'r') as fp:
-			# 	data = json.load(fp)
 				self.neighbors = data
 				self.nodes = set(self.neighbors.keys())
 			return
@@ -83,12 +82,10 @@ class Graph(object):
 								rwcoord = self.occ_to_real_world(coord)
 								self.add_node(rwcoord)
 								self.add_edge(rwpose, rwcoord)
-		print 'saving graph'
+		print 'saving graph to ' + fn
 
 		with open(fn, 'wb') as fp:
 			pickle.dump(self.neighbors, fp, protocol=pickle.HIGHEST_PROTOCOL)
-		# with open(fn, 'w') as fp:
-		# 	json.dump(self.neighbors, fp)
 		return
 
 	def heuristic(self, node1):

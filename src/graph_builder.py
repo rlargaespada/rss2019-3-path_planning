@@ -12,10 +12,7 @@ from std_msgs.msg import Header
 import matplotlib.pyplot as plt
 import graph
 import search
-# try:
-#    import cPickle as pickle
-# except:
-#    import pickle
+import json
 
 class AStar:
     """
@@ -203,31 +200,22 @@ class AStar:
         for i in range(len(self.path)-1):
             cost += self.map_graph.cost(self.path[i], self.path[i+1])
         print(cost)
-        # print(self.path)
-        #self.interpolate_path()
+
+
+        #saving path to csv file
+        path_fn = 'astar_path.json'
+        with open(path_fn, 'w') as f:
+        	json.dumps(self.path, f)
+        	print 'written path to ' + path_fn
+
+
+
         self.PointCloud_path(self.path)
         self.path_publisher.publish(self.cloud)
 
         while True:
             self.particle_cloud_publisher.publish(self.cloud)
             # print("there should be a motherfucking particle cloud")
-
-    # def save_graph(self):
-    #     with open(self.map_file, 'wb') as f:
-    #         pickle.dump(self.map_graph,f)
-
-    # def check_if_graph(self):
-    #     try:
-    #         with open(self.map_file) as f:
-    #             graph = pickle.load(f)
-    #         return graph
-
-    #     except:
-    #         return None
-
-    # def smooth_path(self):
-    #     path = []
-    #     return path
 
     # def create_pose_path(self):
     #     pose_path = []
