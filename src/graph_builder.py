@@ -203,9 +203,11 @@ class AStar:
 
 
         #saving path to csv file
-        path_fn = 'astar_path.json'
+        path_fn = './astar_path.txt'
         with open(path_fn, 'w') as f:
-        	json.dumps(self.path, f)
+        	#json.dumps(self.path, f)
+        	for coord in self.path:
+        		f.write("{}\n".format(coord))
         	print 'written path to ' + path_fn
 
 

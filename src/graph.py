@@ -17,6 +17,7 @@ class Graph(object):
 		self.resolution = None
 		self.origin = tuple()
 		self.map_resolution = '0.1m'
+		#self.map_resolution = 0.5
 
 	def cost(self, p1, p2):
 		return ((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)**(0.5)
