@@ -178,37 +178,47 @@ class AStar:
         confirm = raw_input('Have you finished setting goal points? Enter any key to confirm.')
 
         # print(self.goal_list)
-        time2 = rospy.get_time()
-        while len(self.goal_list)>0:
-            self.goal_pose = self.goal_list.pop(0)
-            # self.map_graph.insert_node(self.goal_pose[:2])
-            self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
-            # print(self.path)
-            #self.path = self.smooth_path()
-            self.start_pose = self.goal_pose
-            
-            # self.pos_path = self.create_pose_path()
-            # self.draw_path()
-        print(time2-time1)
-        print(rospy.get_time()-time2)
+        path_fn = './astar_path.txt'
+        path_load = raw_input('Do you want to load a path from a file? If so enter `y`.')
+        if path_load != 'y':
+	        time2 = rospy.get_time()
+	        while len(self.goal_list)>0:
+	            self.goal_pose = self.goal_list.pop(0)
+	            # self.map_graph.insert_node(self.goal_pose[:2])
+	            self.path = self.path + search.a_star(self.map_graph, tuple(self.start_pose[:2]), tuple(self.goal_pose[:2]))
+	            # print(self.path)
+	            #self.path = self.smooth_path()
+	            self.start_pose = self.goal_pose
+	            
+	            # self.pos_path = self.create_pose_path()
+	            # self.draw_path()
+	        print(time2-time1)
+	        print(rospy.get_time()-time2)
 
-        print("       ")
-        print("       ")
+	                #saving path to txt file
+	        with open(path_fn, 'w') as f:
+	        	#json.dumps(self.path, f)
+	        	for coord in self.path:
+	        		f.write("{}\n".format(coord))
+	        	print 'written path to ' + path_fn
+
+
+        else:
+	    	self.path = []
+	    	with open(path_fn, 'r') as f:
+	    		print 'opened path from ' + path_fn
+	    		for coord in f:
+	    			t = tuple(float(c) for c in coord[1:-2].split(','))
+	    			self.path.append(t)
+
+
+
         print("       ")
         print(len(self.path))
         cost = 0
         for i in range(len(self.path)-1):
             cost += self.map_graph.cost(self.path[i], self.path[i+1])
         print(cost)
-
-
-        #saving path to csv file
-        path_fn = './astar_path.txt'
-        with open(path_fn, 'w') as f:
-        	#json.dumps(self.path, f)
-        	for coord in self.path:
-        		f.write("{}\n".format(coord))
-        	print 'written path to ' + path_fn
 
 
 
