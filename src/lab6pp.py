@@ -15,10 +15,10 @@ from geometry_msgs.msg import Point32
 from visualization_msgs.msg import Marker
 from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point
+from geometry_msgs.msg import PoseStamped
 #from nav_msgs.msg import Path
 import numpy as np
 import warnings
-#from scipy import stats
 
 
 

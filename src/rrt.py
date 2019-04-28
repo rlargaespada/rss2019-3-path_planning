@@ -244,6 +244,7 @@ class RRTstar:
                 self.node_path = self.plan_node_path(self.end_node)
                 self.pose_path = self.plan_pose_path(self.node_path)
                 self.create_PointCloud_pose(self.pose_path, self.particle_cloud_publisher)
+                
             #Get the closest node to our sample
             closest_multiple = self.find_nearest_node(next_pose)
             #Get actual pose for node

@@ -1,0 +1,19 @@
+# map setup
+goal_size: 0.5 # side length of square surrounding goal region
+buff_map: 8 # number of pixels around which to buff the walls on map
+origin_x_offset: -0.5 # additive factor by which the given origin is off from the map
+origin_y_offset: -0.2
+
+map_res: .05 #size of one pixel on map, m/cell
+max_angle: .2 #max angle of racecar
+base_link: .32 #base_link
+map: "stata_basement" #name of map being used
+
+# topics
+traj_topic: "/rrt_traj"
+map_topic: "/map"
+particle_cloud: "/particle_cloud"
+start_topic: "/initialpose"
+goal_topic: "/move_base_simple/goal"
+path_topic: "/test_path"
+path_send_topic: "/test_path"
