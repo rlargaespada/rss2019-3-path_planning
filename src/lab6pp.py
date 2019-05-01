@@ -45,6 +45,7 @@ class PureP:
         self.path = 0
         self.HAVE_PATH = False
         print "Pure Pursuit initialized"
+        self.last_dist = 0
 
 
     def pose_callback(self,data):
@@ -79,7 +80,8 @@ class PureP:
         except: #warps path to cyclic if nearing the end of the path
             path_remaining = np.concatenate((d[i:,:],d[:25,:]))
             dists_remaining = np.concatenate((dists[i:,:],dists[:25]))
-
+        err_d = (dists_remaining[0]-self.last_dist)/2
+        self.last_dist = dists_remaining[0]
         #combined proportional-pure persuit controller with Ackermann steering
         L = .324 #length of wheel base [m]
         #try:
@@ -194,7 +196,8 @@ class PureP:
 
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
-        u = np.arctan(2*L*np.sin(eta)/l)#+kp #sets input steering angle from controller [rad]
+        kd = 1 #gain on derivative of cross track error
+        u = np.arctan(2*L*np.sin(eta)/l)+kd*err_d#+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
         A.drive.speed = vel #sets velocity [m/s]
