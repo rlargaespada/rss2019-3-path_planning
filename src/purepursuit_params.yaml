@@ -1,0 +1,6 @@
+# Topics
+path_topic: "/test_path"
+drive_topic: "/drive"
+
+# drive params
+velocity: 2.0
