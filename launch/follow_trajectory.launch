@@ -3,7 +3,7 @@
 
 	<arg name="lookahead" default="1.5"/>
 	<arg name="max_reacquire" default="3.0"/>
-	<arg name="velocity" default="2"/>
+	<arg name="velocity" default="4.5"/>
 
 	<arg name="odom_topic" default="/pf/pose/odom"/>
 
@@ -17,5 +17,9 @@
 		<param name="wrap" value="0"/>
 		#<param name="drive_topic" value="/vesc/high_level/ackermann_cmd_mux/input/nav_0"/>
 		<param name="drive_topic" value="/drive"/>
+    <param name="Kd_gain" value="1.5"/>
+    <param name="seg_len" value="20"/>
+    <param name="corner_ang" value="45"/>
+
 	</node>
 </launch>

@@ -33,8 +33,12 @@ class PureP:
     local_topic = "/estim_pose"
 
     def __init__(self):
+        # controller params
+        self.Kd_gain = float(rospy.get_param("/Trajectory_follower/Kd_gain"))
+        self.seg_len = int(rospy.get_param("/Trajectory_follower/seg_len")) # distance ahead for Linear Regression
+        self.corner_angle = int(rospy.get_param("/Trajectory_follower/corner_ang")) # Threshold for corner
         #subs
-        self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=10)
+        self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=1)
         # self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         # pubs
@@ -67,7 +71,7 @@ class PureP:
             A.drive.steering_angle = 0 #determines input steering control
             A.drive.steering_angle_velocity = 0 #determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
             self.pub.publish(A) #publish steering command
-            return 
+            return
         d = np.array(data_vec-pos_map).reshape(-1,2) # (n,2), puts data in robot frame (robot is at (0,0)), splits data into x and y each of length n
 
         dists = np.einsum('ij,ij->i',d,d)
@@ -88,7 +92,7 @@ class PureP:
          #   kp = dists_remaining[1]
         #need speed controller for corners if want to attempt high speed maneuvers
         x,y = path_remaining.T     #to be used for speed controller in the future
-        m,b = np.polyfit(x[0:20],y[0:20],1)
+        m,b = np.polyfit(x[0:self.seg_len],y[0:self.seg_len],1)
         #m,b,r,p,st = stats.linregress(x[0:20],y[0:20])
         #r = abs(r)
         #rs = r**257.2958
@@ -100,7 +104,7 @@ class PureP:
             delt-=180
         elif delt<-100:
             delt+=180
-        if not -45<delt<45:
+        if not -self.corner_angle<delt<self.corner_angle:
             print('slow corner')
             vel = 2
             l = 1
@@ -196,8 +200,7 @@ class PureP:
 
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
-        kd = 1 #gain on derivative of cross track error
-        u = np.arctan(2*L*np.sin(eta)/l)+kd*err_d#+kp #sets input steering angle from controller [rad]
+        u = np.arctan(2*L*np.sin(eta)/l)+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
         A.drive.speed = vel #sets velocity [m/s]
