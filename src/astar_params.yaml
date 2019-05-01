@@ -17,3 +17,7 @@ start_topic: "/initialpose"
 goal_topic: "/move_base_simple/goal"
 path_topic: "/test_path"
 path_send_topic: "/test_path"
+
+#loading stuff from file
+map_from_file: True
+path_from_file: True

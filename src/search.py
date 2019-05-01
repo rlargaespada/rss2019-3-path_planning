@@ -22,7 +22,7 @@ def a_star(graph, start, goal):
 			if n not in current_cost or new_cost<current_cost[n]:
 				#print('here')
 				current_cost[n] = new_cost
-				priority = new_cost + graph.heuristic(n)
+				priority = new_cost + graph.heuristic(n, goal)
 				#print('f1', frontier)
 				frontier = queue_insert(frontier, n, priority)
 				#print('f2', frontier)
