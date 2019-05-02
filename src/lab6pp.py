@@ -50,6 +50,9 @@ class PureP:
         self.HAVE_PATH = False
         print "Pure Pursuit initialized"
         self.last_dist = 0
+        self.last_t = rospy.get_time()
+        self.num_deriv = 5 # number of samples for running average of derivative
+        self.derivs = [] 
 
 
     def pose_callback(self,data):
@@ -60,8 +63,8 @@ class PureP:
                         rate of steering control [rad/s]
                         velocity [m/s]
         '''
-        #if self.HAVE_PATH:
         #print "tracking path"
+        time = rospy.get_time()
         self.position = np.array([data.x,data.y,data.z]) #sets global position variable
         pos_map = self.position[0:2] #keeps track of x,y for path transform
         data_vec = self.path #imports global path
@@ -76,15 +79,20 @@ class PureP:
 
         dists = np.einsum('ij,ij->i',d,d)
         i = np.argmin(dists) #index of closest waypoint
-        #if i > len(self.path) - 40:
-        #    self.path += self.path
+
         try:
             path_remaining = d[i:i+25,:] #cuts off prior waypoints already passed
             dists_remaining = dists[i:i+25]
         except: #warps path to cyclic if nearing the end of the path
             path_remaining = np.concatenate((d[i:,:],d[:25,:]))
             dists_remaining = np.concatenate((dists[i:,:],dists[:25]))
-        err_d = (dists_remaining[0]-self.last_dist)/2
+        dt = time - self.last_t
+        self.last_t = time
+        new_d = (dists_remaining[0]-self.last_dist)/dt
+
+        err_d = self.get_deriv(new_d)
+
+        print("I AM THE ERROR",err_d)
         self.last_dist = dists_remaining[0]
         #combined proportional-pure persuit controller with Ackermann steering
         L = .324 #length of wheel base [m]
@@ -97,19 +105,24 @@ class PureP:
         #r = abs(r)
         #rs = r**257.2958
         #print(np.arctan2(m,1)*180/np.pi)
-        #print('pos ', self.position[2]*180/np.pi)
-        #print('ang ', np.arctan2(m,1)*180/np.pi)
+        #lol = np.random.uniform(0,2)
+        #if lol>1.9:
+            #print('pos ', self.position[2]*180/np.pi)
+            #print('ang ', np.arctan2(m,1)*180/np.pi)
+            #print('diff:  ',np.arctan2(m,1)*180/np.pi-self.position[2]*180/np.pi)
+            #print("\n")
+            #print("\n")
         delt = (np.arctan2(m,1)-self.position[2])*180/np.pi
-        if delt>100:
+        if delt>120:
             delt-=180
-        elif delt<-100:
+        elif delt<-120:
             delt+=180
         if not -self.corner_angle<delt<self.corner_angle:
-            print('slow corner')
+            #print('slow corner')
             vel = 2
             l = 1
         else:
-            print('fast')
+            #print('fast')
             vel = self.VELOCITY
             l = 2
 
@@ -200,13 +213,27 @@ class PureP:
 
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
-        u = np.arctan(2*L*np.sin(eta)/l)+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
+        u = np.arctan(2*L*np.sin(eta)/l)#+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
         A.drive.speed = vel #sets velocity [m/s]
         A.drive.steering_angle = u #determines input steering control
         A.drive.steering_angle_velocity = 0 #determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
         self.pub.publish(A) #publish steering command
+
+    def get_deriv(self, new_d):
+        """
+        Calculates running average of the derivative of
+        the crosstrack error
+        """
+        if len(self.derivs) < self.num_deriv:
+            self.derivs.append(new_d)
+
+        else:
+            self.derivs.append(new_d)
+            self.derivs.pop(0)
+
+        return np.average(self.derivs)
 
     def make_marker(self,d):
         #generates marker message
