@@ -30,7 +30,7 @@ class PureP:
     PATH_TOPIC = rospy.get_param("/Trajectory_follower/path_topic")
     DRIVE_TOPIC = rospy.get_param("/Trajectory_follower/drive_topic")
     VELOCITY = float(rospy.get_param("/Trajectory_follower/velocity"))  # [m/s]
-    local_topic = "/estim_pose"
+    local_topic = "/pf/viz/inferred_pose"
 
     def __init__(self):
         # controller params
@@ -38,7 +38,7 @@ class PureP:
         self.seg_len = int(rospy.get_param("/Trajectory_follower/seg_len")) # distance ahead for Linear Regression
         self.corner_angle = int(rospy.get_param("/Trajectory_follower/corner_ang")) # Threshold for corner
         #subs
-        self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=1)
+        self.pose_sub = rospy.Subscriber(self.local_topic,PoseStamped,self.pose_callback,queue_size=1)
         # self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         # pubs
@@ -65,7 +65,7 @@ class PureP:
         '''
         #print "tracking path"
         time = rospy.get_time()
-        self.position = np.array([data.x,data.y,data.z]) #sets global position variable
+        self.position = np.array([data.pose.position.x, data.pose.position.y, 2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
         pos_map = self.position[0:2] #keeps track of x,y for path transform
         data_vec = self.path #imports global path
         if self.path==0: #checks that path has been received
