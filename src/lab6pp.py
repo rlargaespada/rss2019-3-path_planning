@@ -52,7 +52,7 @@ class PureP:
         self.last_dist = 0
         self.last_t = rospy.get_time()
         self.num_deriv = 5 # number of samples for running average of derivative
-        self.derivs = [] 
+        self.derivs = []
 
 
     def pose_callback(self,data):
@@ -213,7 +213,7 @@ class PureP:
 
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
-        u = np.arctan(2*L*np.sin(eta)/l)#+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
+        u = np.arctan(2*L*np.sin(eta)/l)+self.Kd_gain*err_d #+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
         A.drive.speed = vel #sets velocity [m/s]
@@ -274,7 +274,6 @@ class PureP:
         # data = [[pose_stamped.pose.position.x, pose_stamped.pose.position.y] for pose_stamped in path_info.poses]
         #data_ved = np.array(data)
         #data_vec = [[-.05*x, .0] for x in range(400)] #+ [[20, .05*x] for x in range(100)]
-        print("map initialized")
         data_vec = [[i.x,i.y] for i in d.points]
         #data_vec = conv()
         #pos_map = np.array([[self.position[0],self.position[1]]]) # (1,2)

@@ -17,7 +17,7 @@
 		<param name="wrap" value="0"/>
 		#<param name="drive_topic" value="/vesc/high_level/ackermann_cmd_mux/input/nav_0"/>
 		<param name="drive_topic" value="/drive"/>
-    <param name="Kd_gain" value="1.5"/>
+    <param name="Kd_gain" value="0.0"/>
     <param name="seg_len" value="20"/>
     <param name="corner_ang" value="45"/>
 
