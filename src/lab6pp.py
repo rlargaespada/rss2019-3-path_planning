@@ -76,23 +76,34 @@ class PureP:
             self.pub.publish(A) #publish steering command
             return
         d = np.array(data_vec-pos_map).reshape(-1,2) # (n,2), puts data in robot frame (robot is at (0,0)), splits data into x and y each of length n
-
+        #d2 = np.array(data_vec).reshape(-1,2)
         dists = np.einsum('ij,ij->i',d,d)
         i = np.argmin(dists) #index of closest waypoint
 
         try:
-            path_remaining = d[i:i+25,:] #cuts off prior waypoints already passed
-            dists_remaining = dists[i:i+25]
+            path_remaining = d[i:i+40,:] #cuts off prior waypoints already passed
+            #path2 = d2[i:i+40]
+            dists_remaining = dists[i:i+40:]
+
+
+
         except: #warps path to cyclic if nearing the end of the path
-            path_remaining = np.concatenate((d[i:,:],d[:25,:]))
-            dists_remaining = np.concatenate((dists[i:,:],dists[:25]))
+            #path_remaining = d[0:100,:] #cuts off prior waypoints already passed
+            #path2 = d2[i:i+40]
+            #dists_remaining = dists[0:100:]
+
+            path_remaining = np.concatenate((d[i:,:],d[0:40,:]))
+            #path2 = np.concatenate((d2[i:,:],d2[:40,:]))
+            dists_remaining = np.concatenate((dists[i:,:],dists[0:40]))
+
+
         dt = time - self.last_t
         self.last_t = time
         new_d = (dists_remaining[0]-self.last_dist)/dt
 
         err_d = self.get_deriv(new_d)
 
-        print("I AM THE ERROR",err_d)
+        #print("I AM THE ERROR",err_d)
         self.last_dist = dists_remaining[0]
         #combined proportional-pure persuit controller with Ackermann steering
         L = .324 #length of wheel base [m]
@@ -113,6 +124,7 @@ class PureP:
             #print("\n")
             #print("\n")
         delt = (np.arctan2(m,1)-self.position[2])*180/np.pi
+        print('delt:  ',delt)
         if delt>120:
             delt-=180
         elif delt<-120:
@@ -120,7 +132,7 @@ class PureP:
         if not -self.corner_angle<delt<self.corner_angle:
             #print('slow corner')
             vel = 2
-            l = 1
+            l = 1.5
         else:
             #print('fast')
             vel = self.VELOCITY
@@ -139,81 +151,104 @@ class PureP:
          #   l=.5*v
         #else:
          #   l=2#v/2 # still overshoots! be careful!
-
+        '''
         straight_line_condition = False
         #find point in path one lookahead distance out
         #this is the fewest possible computations
+        p1 = path_remaining[0,:]
+        p2 = path_remaining[1,:]
+        path_step = np.linalg.norm(p2-p1) #takes distance between p2 and p1 to find path step
         for j in range(len(dists_remaining)):
             # find index of first waypoint in the line segment containing
             # the point on the path one lookahead distance away from the robot
-            try:
-                p2 = path_remaining[j+1,:]
-            except:
-                ind = j
-                break
-            p1 = path_remaining[j,:]
-            path_step = np.linalg.norm(p2-p1) #takes distance between p2 and p1 to find path step
+            #try:
+             #   p2 = path_remaining[j+1,:]
+            #except:
+             #   ind = j
+              #  print('end of list condition')
+               # break
+            
             if 0<l-dists_remaining[j]<path_step:
                 ind = j
+                print('yes yes yes good')
                 break
             #check if path is more than one lookahead distance from robot
-            if l<dists_remaining[j]:
+            if l<dists_remaining[0]:
                 straight_line_condition = True
-                ind2 = j
-                #l = dists_remaining[j]
+                ind = 0
+                l = dists_remaining[j]
+                print('far from path')
                 break
         else:
             ind = 0
 
         flag = False
         #take x,y coor of p1 and p2
-        try:
-            x1 = path_remaining[ind,0]
-            y1 = path_remaining[ind,1]
-            x2 = path_remaining[ind+1,0]
-            y2 = path_remaining[ind+1,1]
-            if y2==y1: #edge case
-                y_new = y1
-                x_new = np.sqrt(l**2-y1**2)
-                flag = True
-            if x2==x1: #edge case
-                x_new = x1
-                y_new = np.sqrt(l**2-x1**2)
-                flag = True
-        except: #if at the end of the path, set point to last waypoint
-            if straight_line_condition:
-                x1 = self.position[0]
-                y1 = self.position[1]
-                x2 = path_remaining[ind2,0]
-                y2 = path_remaining[ind2,1]
-            else:
-                x_new = path_remaining[ind,0]
-                y_new = path_remaining[ind,1]
-                flag = True
+        if not straight_line_condition:
+            #x1 = path_remaining[ind-5,0]
+            #y1 = path_remaining[ind-5,1]
+            #x2 = path_remaining[ind+5,0]
+            #y2 = path_remaining[ind+5,1]
+
+            x1 = path2[ind-5,0]
+            y1 = path2[ind-5,1]
+            x2 = path2[ind+5,0]
+            y2 = path2[ind+5,1]
+            #if y2==y1: #edge case
+            #    y_new = y1
+            #    x_new = np.sqrt(l**2-y1**2)
+            #    flag = True
+            #if x2==x1: #edge case
+            #    x_new = x1
+            #    y_new = np.sqrt(l**2-x1**2)
+            #    flag = True
+        else: #if at the end of the path, set point to last waypoint
+            #if straight_line_condition:
+            #     x1 = self.position[0]
+            #     y1 = self.position[1]
+            #     x2 = path_remaining[ind2,0]
+            #     y2 = path_remaining[ind2,1]
+            # else:
+            x_new = path_remaining[ind,0]
+            y_new = path_remaining[ind,1]
+            flag = True
 
 
         #standard computation
         if not flag:
-
+            print('standard computation')
             p1 = np.array([[x1,y1]])
             p2 = np.array([[x2,y2]])
+            q = np.array([[data.x,data.y]])
             v = p2-p1
 
             a = np.dot(v,v.T)
-            b = 2*(np.dot(v,p1.T))
-            c = np.dot(p1,p1.T)-l**2
+            b = 2*(np.dot(v,(p1-q).T))
+            c = np.dot(p1,p1.T)-l**2+np.dot(q,q.T)+2*np.dot(p1,q.T)
 
             t1 = min(1,max(0,(-b-np.sqrt(b**2-4*a*c))/(2*a)))
             t2 = min(1,max(0,(-b+np.sqrt(b**2-4*a*c))/(2*a)))
             t = max(t1,t2)
+            print(t)
 
             new_point = p1 + t*v
             x_new,y_new = new_point.T
 
+        '''
+        if l<dists_remaining[0]:
+            l = dists_remaining[0]
+            print('far from path')
+            new_ind = 0
+        else:
+            new_ind = int(10*l)
 
+        print('ind:  ',new_ind)
+        x_new,y_new = path_remaining[new_ind,:].T
+        kp = 0
+        prop = path_remaining[0,1]
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
-        u = np.arctan(2*L*np.sin(eta)/l)#+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
+        u = np.arctan(2*L*np.sin(eta)/l)#+kp*prop+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
         A.drive.speed = vel #sets velocity [m/s]
@@ -274,7 +309,8 @@ class PureP:
         # data = [[pose_stamped.pose.position.x, pose_stamped.pose.position.y] for pose_stamped in path_info.poses]
         #data_ved = np.array(data)
         #data_vec = [[-.05*x, .0] for x in range(400)] #+ [[20, .05*x] for x in range(100)]
-        print("map initialized")
+        #print("map initialized")
+
         data_vec = [[i.x,i.y] for i in d.points]
         #data_vec = conv()
         #pos_map = np.array([[self.position[0],self.position[1]]]) # (1,2)
