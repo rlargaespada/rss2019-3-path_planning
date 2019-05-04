@@ -30,7 +30,7 @@ class PureP:
     PATH_TOPIC = rospy.get_param("/Trajectory_follower/path_topic")
     DRIVE_TOPIC = rospy.get_param("/Trajectory_follower/drive_topic")
     VELOCITY = float(rospy.get_param("/Trajectory_follower/velocity"))  # [m/s]
-    local_topic = "/estim_pose"
+    local_topic = "/pf/viz/inferred_pose"
 
     def __init__(self):
         # controller params
@@ -38,12 +38,14 @@ class PureP:
         self.seg_len = int(rospy.get_param("/Trajectory_follower/seg_len")) # distance ahead for Linear Regression
         self.corner_angle = int(rospy.get_param("/Trajectory_follower/corner_ang")) # Threshold for corner
         #subs
-        self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=1)
+        self.pose_sub = rospy.Subscriber(self.local_topic,PoseStamped,self.pose_callback,queue_size=1)
         # self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         # pubs
         self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
         self.pub_line = rospy.Publisher("marker",Marker,queue_size=10)
+	self.pt_pub = rospy.Publisher("/next_pt", PointCloud, queue_size=10)
+	self.rel_path_pub = rospy.Publisher("/rel_path", PointCloud, queue_size=10)
         #initialized vars
         self.position = np.zeros(2)
         self.path = 0
@@ -65,7 +67,7 @@ class PureP:
         '''
         #print "tracking path"
         time = rospy.get_time()
-        self.position = np.array([data.x,data.y,data.z]) #sets global position variable
+        self.position = np.array([data.pose.position.x,data.pose.position.y,2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
         pos_map = self.position[0:2] #keeps track of x,y for path transform
         data_vec = self.path #imports global path
         if self.path==0: #checks that path has been received
@@ -81,9 +83,9 @@ class PureP:
         i = np.argmin(dists) #index of closest waypoint
 
         try:
-            path_remaining = d[i:i+40,:] #cuts off prior waypoints already passed
+            path_remaining = d[i:i+100,:] #cuts off prior waypoints already passed
             #path2 = d2[i:i+40]
-            dists_remaining = dists[i:i+40:]
+            dists_remaining = dists[i:i+100:]
 
 
 
@@ -92,7 +94,7 @@ class PureP:
             #path2 = d2[i:i+40]
             #dists_remaining = dists[0:100:]
 
-            path_remaining = np.concatenate((d[i:,:],d[0:40,:]))
+            path_remaining = np.concatenate((d[i:,:],d[0:100,:]))
             #path2 = np.concatenate((d2[i:,:],d2[:40,:]))
             dists_remaining = np.concatenate((dists[i:,:],dists[0:40]))
 
@@ -124,7 +126,7 @@ class PureP:
             #print("\n")
             #print("\n")
         delt = (np.arctan2(m,1)-self.position[2])*180/np.pi
-        print('delt:  ',delt)
+        # print('delt:  ',delt)
         if delt>120:
             delt-=180
         elif delt<-120:
@@ -136,7 +138,9 @@ class PureP:
         else:
             #print('fast')
             vel = self.VELOCITY
-            l = 2
+            l = 2.7
+
+	# print "Lookahead:", l
 
         #dynamic lookahead distance
         #if r>.8:
@@ -170,7 +174,7 @@ class PureP:
             
             if 0<l-dists_remaining[j]<path_step:
                 ind = j
-                print('yes yes yes good')
+                # print('yes yes yes good')
                 break
             #check if path is more than one lookahead distance from robot
             if l<dists_remaining[0]:
@@ -242,13 +246,16 @@ class PureP:
         else:
             new_ind = int(10*l)
 
-        print('ind:  ',new_ind)
+        # print('ind:  ',new_ind)
         x_new,y_new = path_remaining[new_ind,:].T
-        kp = 0
+        kp = 0.1
         prop = path_remaining[0,1]
+	self.pub_point(path_remaining[0])
+	self.pub_rel_path(path_remaining)
+	print "Proportional Error:", prop
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
-        u = np.arctan(2*L*np.sin(eta)/l)#+kp*prop+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
+        u = np.arctan(2*L*np.sin(eta)/l)+kp*prop #+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
         A.drive.speed = vel #sets velocity [m/s]
@@ -269,6 +276,31 @@ class PureP:
             self.derivs.pop(0)
 
         return np.average(self.derivs)
+
+    def pub_point(self, point):
+        '''
+        Create and publish point cloud of a point.
+        '''
+	self.cloud = PointCloud()
+        self.cloud.header.frame_id = "/base_link"
+        self.cloud.points = [Point32()]
+
+	self.cloud.points[0].x = point[0]
+	self.cloud.points[0].y = point[1]
+
+        self.pt_pub.publish(self.cloud)
+
+    def pub_rel_path(self, path_pts):
+	self.path_cloud = PointCloud()
+	self.path_cloud.header.frame_id = "/base_link"
+	self.path_cloud.points = [Point32() for p in path_pts]
+
+	for i, pt in enumerate(path_pts):
+	    self.path_cloud.points[i].x = pt[0]
+	    self.path_cloud.points[i].y = pt[1]
+
+	self.rel_path_pub.publish(self.path_cloud)
+
 
     def make_marker(self,d):
         #generates marker message
