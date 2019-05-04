@@ -9,6 +9,7 @@ import numpy as np
 import rospy
 from rospy.numpy_msg import numpy_msg
 from std_msgs.msg import Float32
+from tf.transformations import euler_from_quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 import utils
 from geometry_msgs.msg import Point32
@@ -67,7 +68,8 @@ class PureP:
         '''
         #print "tracking path"
         time = rospy.get_time()
-        self.position = np.array([data.pose.position.x,data.pose.position.y,2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
+        euler_angles = euler_from_quaternion([data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w])
+        self.position = np.array([data.pose.position.x,data.pose.position.y,euler_angles[2]]) #sets global position variable
         pos_map = self.position[0:2] #keeps track of x,y for path transform
         data_vec = self.path #imports global path
         if self.path==0: #checks that path has been received
@@ -78,14 +80,17 @@ class PureP:
             self.pub.publish(A) #publish steering command
             return
         d = np.array(data_vec-pos_map).reshape(-1,2) # (n,2), puts data in robot frame (robot is at (0,0)), splits data into x and y each of length n
+        for index in range(d.shape[0]):
+            d[index] = np.matmul(np.array([[np.cos(self.position[2]), -np.sin(self.position[2])], [np.sin(self.position[2]), np.cos(self.position[2])]]).T, np.array([self.path[index][0] - self.position[0], self.path[index][1] - self.position[1]]).T)
+        self.pub_rel_path(d)
         #d2 = np.array(data_vec).reshape(-1,2)
         dists = np.einsum('ij,ij->i',d,d)
         i = np.argmin(dists) #index of closest waypoint
 
         try:
-            path_remaining = d[i:i+100,:] #cuts off prior waypoints already passed
+            path_remaining = d[i:i+40,:] #cuts off prior waypoints already passed
             #path2 = d2[i:i+40]
-            dists_remaining = dists[i:i+100:]
+            dists_remaining = dists[i:i+40:]
 
 
 
@@ -94,7 +99,7 @@ class PureP:
             #path2 = d2[i:i+40]
             #dists_remaining = dists[0:100:]
 
-            path_remaining = np.concatenate((d[i:,:],d[0:100,:]))
+            path_remaining = np.concatenate((d[i:,:],d[0:40,:]))
             #path2 = np.concatenate((d2[i:,:],d2[:40,:]))
             dists_remaining = np.concatenate((dists[i:,:],dists[0:40]))
 
@@ -251,7 +256,7 @@ class PureP:
         kp = 0.1
         prop = path_remaining[0,1]
 	self.pub_point(path_remaining[0])
-	self.pub_rel_path(path_remaining)
+	#self.pub_rel_path(path_remaining)
 	print "Proportional Error:", prop
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
