@@ -11,7 +11,7 @@ from rospy.numpy_msg import numpy_msg
 from std_msgs.msg import MultiArrayLayout, Float32
 from ackermann_msgs.msg import AckermannDriveStamped
 import utils
-from geometry_msgs.msg import PolygonStamped, Point32
+from geometry_msgs.msg import PolygonStamped, Point32, PoseStamped
 from visualization_msgs.msg import Marker
 from nav_msgs.msg import Path
 from std_msgs.msg import Float32
@@ -29,7 +29,7 @@ class PathPlanning:
 	DRIVE_TOPIC = rospy.get_param("/Trajectory_follower/drive_topic")
 	VELOCITY = float(rospy.get_param("/Trajectory_follower/speed"))  # [m/s]
 	#POSE_TOPIC = rospy.get_param("/particle_filter/pose_topic")
-	local_topic = "/estim_pose"
+	local_topic = "/pf/viz/inferred_pose"
 	float_topic = "/numbers"
 	path_cloud_topic = "/path_cloud"
 	#POSITION = None #rospy.get_param("~position") # (x,y), robot position in map frame
@@ -38,7 +38,7 @@ class PathPlanning:
 
 	def __init__(self):
 		print("HELLO")
-		self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=10)
+		self.pose_sub = rospy.Subscriber(self.local_topic,PoseStamped,self.pose_callback,queue_size=10)
 		self.POSE = []
 		self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
 		self.pub_float = rospy.Publisher(self.float_topic, Float32, queue_size=10)
@@ -103,8 +103,8 @@ class PathPlanning:
 		return closest_point, closest_index, distance
 			
 
-	def pose_callback(self, pose):
-		self.POSE = [pose.x, pose.y, pose.z]
+	def pose_callback(self, data):
+		self.POSE = np.array([data.pose.position.x, data.pose.position.y, 2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
 
 	def PointCloud_path(self, points):
 		self.cloud.header.frame_id = "/map"
