@@ -66,7 +66,7 @@ class PureP:
                         rate of steering control [rad/s]
                         velocity [m/s]
         '''
-        #print "tracking path"
+        print "tracking path"
         time = rospy.get_time()
         euler_angles = euler_from_quaternion([data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w])
         self.position = np.array([data.pose.position.x,data.pose.position.y,euler_angles[2]]) #sets global position variable
@@ -130,12 +130,17 @@ class PureP:
             #print('diff:  ',np.arctan2(m,1)*180/np.pi-self.position[2]*180/np.pi)
             #print("\n")
             #print("\n")
-        delt = (np.arctan2(m,1)-self.position[2])*180/np.pi
+        delt = (np.arctan2(m,1))*180/np.pi
         # print('delt:  ',delt)
         if delt>120:
             delt-=180
         elif delt<-120:
             delt+=180
+        print("\n")
+        print("\n")
+        print(delt)
+        print("\n")
+        print("\n")
         if not -self.corner_angle<delt<self.corner_angle:
             #print('slow corner')
             vel = 2
@@ -259,7 +264,7 @@ class PureP:
 	#self.pub_rel_path(path_remaining)
 	print "Proportional Error:", prop
         # compute ackermann steering angle to feed into cotroller
-        eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
+        eta = np.arctan2(y_new,x_new) #angle between velocity vector and desired path [rad]
         u = np.arctan(2*L*np.sin(eta)/l)+kp*prop #+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
