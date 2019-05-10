@@ -9,6 +9,7 @@ import numpy as np
 import rospy
 from rospy.numpy_msg import numpy_msg
 from std_msgs.msg import Float32
+from tf.transformations import euler_from_quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 import utils
 from geometry_msgs.msg import Point32
@@ -30,22 +31,31 @@ class PureP:
     PATH_TOPIC = rospy.get_param("/Trajectory_follower/path_topic")
     DRIVE_TOPIC = rospy.get_param("/Trajectory_follower/drive_topic")
     VELOCITY = float(rospy.get_param("/Trajectory_follower/velocity"))  # [m/s]
-    local_topic = "/estim_pose"
+    local_topic = "/pf/viz/inferred_pose"
 
     def __init__(self):
+        # controller params
+        self.Kd_gain = float(rospy.get_param("/Trajectory_follower/Kd_gain"))
+        self.seg_len = int(rospy.get_param("/Trajectory_follower/seg_len")) # distance ahead for Linear Regression
+        self.corner_angle = int(rospy.get_param("/Trajectory_follower/corner_ang")) # Threshold for corner
         #subs
-        self.pose_sub = rospy.Subscriber(self.local_topic,Point32,self.pose_callback,queue_size=10)
+        self.pose_sub = rospy.Subscriber(self.local_topic,PoseStamped,self.pose_callback,queue_size=1)
         # self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         self.sub = rospy.Subscriber(self.PATH_TOPIC, PointCloud, self.callback, queue_size=10)
         # pubs
         self.pub = rospy.Publisher(self.DRIVE_TOPIC,AckermannDriveStamped, queue_size=10)
         self.pub_line = rospy.Publisher("marker",Marker,queue_size=10)
+    self.pt_pub = rospy.Publisher("/next_pt", PointCloud, queue_size=10)
+    self.rel_path_pub = rospy.Publisher("/rel_path", PointCloud, queue_size=10)
         #initialized vars
         self.position = np.zeros(2)
         self.path = 0
         self.HAVE_PATH = False
         print "Pure Pursuit initialized"
         self.last_dist = 0
+        self.last_t = rospy.get_time()
+        self.num_deriv = 5 # number of samples for running average of derivative
+        self.derivs = [] 
 
 
     def pose_callback(self,data):
@@ -56,154 +66,122 @@ class PureP:
                         rate of steering control [rad/s]
                         velocity [m/s]
         '''
-        #if self.HAVE_PATH:
         #print "tracking path"
-        self.position = np.array([data.x,data.y,data.z]) #sets global position variable
+        time = rospy.get_time()
+        euler_angles = euler_from_quaternion([data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w])
+        self.position = np.array([data.pose.position.x,data.pose.position.y,euler_angles[2]]) #sets global position variable
         pos_map = self.position[0:2] #keeps track of x,y for path transform
-        data_vec = self.path #imports global path
+        data_vec = np.array(self.path) #imports global path
         if self.path==0: #checks that path has been received
             A = AckermannDriveStamped()
             A.drive.speed = 0 #sets velocity [m/s]
             A.drive.steering_angle = 0 #determines input steering control
             A.drive.steering_angle_velocity = 0 #determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
             self.pub.publish(A) #publish steering command
-            return 
-        d = np.array(data_vec-pos_map).reshape(-1,2) # (n,2), puts data in robot frame (robot is at (0,0)), splits data into x and y each of length n
+            return
 
-        dists = np.einsum('ij,ij->i',d,d)
-        i = np.argmin(dists) #index of closest waypoint
-        #if i > len(self.path) - 40:
-        #    self.path += self.path
-        try:
-            path_remaining = d[i:i+25,:] #cuts off prior waypoints already passed
-            dists_remaining = dists[i:i+25]
-        except: #warps path to cyclic if nearing the end of the path
-            path_remaining = np.concatenate((d[i:,:],d[:25,:]))
-            dists_remaining = np.concatenate((dists[i:,:],dists[:25]))
-        err_d = (dists_remaining[0]-self.last_dist)/2
-        self.last_dist = dists_remaining[0]
-        #combined proportional-pure persuit controller with Ackermann steering
         L = .324 #length of wheel base [m]
-        #try:
-         #   kp = dists_remaining[1]
-        #need speed controller for corners if want to attempt high speed maneuvers
-        x,y = path_remaining.T     #to be used for speed controller in the future
-        m,b = np.polyfit(x[0:20],y[0:20],1)
-        #m,b,r,p,st = stats.linregress(x[0:20],y[0:20])
-        #r = abs(r)
-        #rs = r**257.2958
-        #print(np.arctan2(m,1)*180/np.pi)
-        #print('pos ', self.position[2]*180/np.pi)
-        #print('ang ', np.arctan2(m,1)*180/np.pi)
-        delt = (np.arctan2(m,1)-self.position[2])*180/np.pi
-        if delt>100:
+        dists = np.sqrt((data_vec.T[0]-self.position[0])**2+(data_vec.T[1]-self.position[1])**2)
+        i = np.argmin(dists) #index of closest waypoint
+        dists_remaining = dists[i:]
+        path_remaining = data_vec[i:,:]
+
+        d = data_vec
+        for index in range(len(dists)):
+            d[index] = np.matmul(np.array([[np.cos(self.position[2]), -np.sin(self.position[2])], [np.sin(self.position[2]), np.cos(self.position[2])]]).T, np.array([self.path[index][0] - self.position[0], self.path[index][1] - self.position[1]]).T)
+
+
+        x,y = d[i:,:].T     #to be used for speed controller in the future
+        m,b = np.polyfit(x[0:self.seg_len],y[0:self.seg_len],1) #need to set seg_lengh to ~30
+        delt = (np.arctan2(m,1))*180/np.pi
+        # print('delt:  ',delt)
+        if delt>110:
             delt-=180
-        elif delt<-100:
+        elif delt<-110:
             delt+=180
-        if not -45<delt<45:
-            print('slow corner')
+        if not -self.corner_angle<delt<self.corner_angle:
+            #print('slow corner')
             vel = 2
-            l = 1
+            l = 1.5
         else:
-            print('fast')
+            #print('fast')
             vel = self.VELOCITY
-            l = 2
+            l = 2.7
 
-        #dynamic lookahead distance
-        #if r>.8:
-         #   v = self.VELOCITY
-        #else:
-         #   v = max(2,r*self.VELOCITY)
-        #if r<.8 and r>0:
-         #   print('r: ',r)
-          #  print('v: ',v)
-        #l=.5*v+.5
-        #if v<2:
-         #   l=.5*v
-        #else:
-         #   l=2#v/2 # still overshoots! be careful!
-
-        straight_line_condition = False
-        #find point in path one lookahead distance out
-        #this is the fewest possible computations
-        for j in range(len(dists_remaining)):
-            # find index of first waypoint in the line segment containing
-            # the point on the path one lookahead distance away from the robot
-            try:
-                p2 = path_remaining[j+1,:]
-            except:
-                ind = j
-                break
-            p1 = path_remaining[j,:]
-            path_step = np.linalg.norm(p2-p1) #takes distance between p2 and p1 to find path step
-            if 0<l-dists_remaining[j]<path_step:
-                ind = j
-                break
-            #check if path is more than one lookahead distance from robot
-            if l<dists_remaining[j]:
-                straight_line_condition = True
-                ind2 = j
-                #l = dists_remaining[j]
+        for j in range(1,len(dists_remaining)):
+            p1 = dists_remaining[j-1]
+            p2 = dists_remaining[j]
+            if p1<=l<p2:
+                ind = j-1
+                print('ind in path: ',ind)
                 break
         else:
-            ind = 0
-
-        flag = False
-        #take x,y coor of p1 and p2
-        try:
-            x1 = path_remaining[ind,0]
-            y1 = path_remaining[ind,1]
-            x2 = path_remaining[ind+1,0]
-            y2 = path_remaining[ind+1,1]
-            if y2==y1: #edge case
-                y_new = y1
-                x_new = np.sqrt(l**2-y1**2)
-                flag = True
-            if x2==x1: #edge case
-                x_new = x1
-                y_new = np.sqrt(l**2-x1**2)
-                flag = True
-        except: #if at the end of the path, set point to last waypoint
-            if straight_line_condition:
-                x1 = self.position[0]
-                y1 = self.position[1]
-                x2 = path_remaining[ind2,0]
-                y2 = path_remaining[ind2,1]
-            else:
-                x_new = path_remaining[ind,0]
-                y_new = path_remaining[ind,1]
-                flag = True
+            ind = 0 #far from path condition
+            l = dists_remaining[0]
 
 
-        #standard computation
-        if not flag:
+        #if l<dists_remaining[0]:
+        #    l = dists_remaining[0]
+        #    print('far from path')
+        #    new_ind = 0
+        #else:
+        #    new_ind = int(10*l)
 
-            p1 = np.array([[x1,y1]])
-            p2 = np.array([[x2,y2]])
-            v = p2-p1
-
-            a = np.dot(v,v.T)
-            b = 2*(np.dot(v,p1.T))
-            c = np.dot(p1,p1.T)-l**2
-
-            t1 = min(1,max(0,(-b-np.sqrt(b**2-4*a*c))/(2*a)))
-            t2 = min(1,max(0,(-b+np.sqrt(b**2-4*a*c))/(2*a)))
-            t = max(t1,t2)
-
-            new_point = p1 + t*v
-            x_new,y_new = new_point.T
-
-
+        # print('ind:  ',new_ind)
+        x_new,y_new = path_remaining[ind,:].T
+        #kp = 0.1
+        #prop = path_remaining[0,1]
+        self.pub_point(path_remaining[0])
+        #self.pub_rel_path(path_remaining)
+        #print "Proportional Error:", prop
         # compute ackermann steering angle to feed into cotroller
         eta = np.arctan2(y_new,x_new)-self.position[2] #angle between velocity vector and desired path [rad]
-        kd = 1 #gain on derivative of cross track error
-        u = np.arctan(2*L*np.sin(eta)/l)+kd*err_d#+kp #sets input steering angle from controller [rad]
+        u = np.arctan(2*L*np.sin(eta)/l)#+kp*prop #+self.Kd_gain*err_d#+kp #sets input steering angle from controller [rad]
         #print "sending steering command"
         A = AckermannDriveStamped()
         A.drive.speed = vel #sets velocity [m/s]
         A.drive.steering_angle = u #determines input steering control
         A.drive.steering_angle_velocity = 0 #determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
         self.pub.publish(A) #publish steering command
+
+    def get_deriv(self, new_d):
+        """
+        Calculates running average of the derivative of
+        the crosstrack error
+        """
+        if len(self.derivs) < self.num_deriv:
+            self.derivs.append(new_d)
+
+        else:
+            self.derivs.append(new_d)
+            self.derivs.pop(0)
+
+        return np.average(self.derivs)
+
+    def pub_point(self, point):
+        '''
+        Create and publish point cloud of a point.
+        '''
+        self.cloud = PointCloud()
+        self.cloud.header.frame_id = "/base_link"
+        self.cloud.points = [Point32()]
+
+        self.cloud.points[0].x = point[0]
+        self.cloud.points[0].y = point[1]
+
+        self.pt_pub.publish(self.cloud)
+
+    def pub_rel_path(self, path_pts):
+        self.path_cloud = PointCloud()
+        self.path_cloud.header.frame_id = "/base_link"
+        self.path_cloud.points = [Point32() for p in path_pts]
+
+    for i, pt in enumerate(path_pts):
+        self.path_cloud.points[i].x = pt[0]
+        self.path_cloud.points[i].y = pt[1]
+
+        self.rel_path_pub.publish(self.path_cloud)
+
 
     def make_marker(self,d):
         #generates marker message
@@ -244,7 +222,8 @@ class PureP:
         # data = [[pose_stamped.pose.position.x, pose_stamped.pose.position.y] for pose_stamped in path_info.poses]
         #data_ved = np.array(data)
         #data_vec = [[-.05*x, .0] for x in range(400)] #+ [[20, .05*x] for x in range(100)]
-        print("map initialized")
+        #print("map initialized")
+
         data_vec = [[i.x,i.y] for i in d.points]
         #data_vec = conv()
         #pos_map = np.array([[self.position[0],self.position[1]]]) # (1,2)
