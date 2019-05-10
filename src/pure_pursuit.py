@@ -69,7 +69,7 @@ class PurePursuit(object):
         Output: steer: Ackermann steering angle from current point
         """
         # eta  = angle between velocity vector and desired point [rad]
-        eta = np.arctan2(target[1], target[0]) -self.pose[2]
+        eta = np.arctan2(target[1], target[0]) - self.pose[2]
 
         # computes steering angle using ackermann steering [rad]
         steer = np.arctan(2*self.wheelbase*np.sin(eta)/self.lookahead)
@@ -97,11 +97,10 @@ class PurePursuit(object):
         Input: target_pt: x, y coordinates of point that we are steering toward
         Output: curvature: a metric used to determine the next lookahead distance
         """
-        pose = np.array(self.pose)
         # pose = np.array([0,0,0])
-        target = np.array(target_pt)
+        # target = np.array(target_pt)
 
-        goal_angle = math.atan2(pose[1]-target[1], pose[0]-target[0])-pose[2]
+        goal_angle = math.atan2(self.pose[1]-target_pt[1], self.pose[0]-target_pt[0])-self.pose[2]
 
         rad = self.lookahead/(2*math.sin(goal_angle))
 
@@ -131,6 +130,7 @@ class PurePursuit(object):
         """
         # this defintion should be dependent on lookahead dist
         end = min(closest_point_idx + 10*self.lookahead, len(self.path)-1) # pts about 10 cm apart, this gets us to distance of lookahead
+        print(self.path[end])
         return self.path[end]
 
         # forward_points = np.array(self.path[closest_point_idx:end, :])
@@ -193,6 +193,8 @@ class PurePursuit(object):
         # if 0 <= t2 <= 1:
         #     # try t1 first because it's further ahead
         #     return p1 + t2*v
+    def dist(self, pos1, pos2):
+		return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
 
         # if 0 <= t1 <=1: #and closest_point_idx > len(self.path):
         #     return p1 + v
