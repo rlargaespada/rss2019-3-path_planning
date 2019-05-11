@@ -59,24 +59,24 @@ class PathPlanning:
         self.path = np.array([[point.x, point.y] for point in path_points.points])
 
     def dist(self, pos1, pos2):
-    	'''
-    	returns: distance between two points
-    	'''
+        '''
+        returns: distance between two points
+        '''
         return ((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)**.5
 
     def get_target_point(self, path, pose, list_pos, l):
-    	'''
-		Chooses the correct point for pure pursuit by iterating through points until the distance covered 
-		is greater than the lookahead
-    	'''
+        '''
+        Chooses the correct point for pure pursuit by iterating through points until the distance covered 
+        is greater than the lookahead
+        '''
         min_pt = []
         min_idx = []
-		closest_point = None
+        closest_point = None
         min_dist = float("inf")
         #Iterate from the last_pos to find the next point outside radius.  
         #We do this to avoid following points behind us.
-        for idx in range(list_pos, len(path)):
-            pt = path[idx]
+        for idx in range(list_pos, list_pos + len(path)):
+            pt = path[idx%(len(path) - 1)]
             distance = self.dist(pt, pose)
             if distance > l:
                 closest_index = idx
@@ -98,9 +98,9 @@ class PathPlanning:
         return closest_idx      
 
     def pose_callback(self, data):
-    	'''
-		Updates the current pose and uses pure pursuit to follow the path
-    	'''
+        '''
+        Updates the current pose and uses pure pursuit to follow the path
+        '''
         self.POSE = np.array([data.pose.position.x, data.pose.position.y, 2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
         
         self.list_pos = self.get_closest_point() # index of the closest point
@@ -122,10 +122,10 @@ class PathPlanning:
         self.create_ackermann_message(u)        
 
     def create_ackermann_message(self, steering_angle):
-    	'''
-		Creates an Ackermann drive message and publishes it
-    	'''
-		A = AckermannDriveStamped()
+        '''
+        Creates an Ackermann drive message and publishes it
+        '''
+        A = AckermannDriveStamped()
         A.drive.speed = self.VELOCITY
         A.drive.steering_angle = steering_angle
         A.drive.steering_angle_velocity = 0 # determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
@@ -159,14 +159,14 @@ class PathPlanning:
         more curvature = shorter lookahead, less curvature = longer lookahead
         """
         if curv < 3:
-            self.lookahead = 2
-	    	self.VELOCITY = 2
+            self.lookahead = 1
+            self.VELOCITY = 2
         elif curv < 5:
-            self.lookahead = 2.5
-	    	self.VELOCITY = 2.5
+            self.lookahead = 2
+            self.VELOCITY = 2.5
         else:
             self.lookahead = 4
-	    	self.VELOCITY = 3
+            self.VELOCITY = 3
 
     
 if __name__ == "__main__":
