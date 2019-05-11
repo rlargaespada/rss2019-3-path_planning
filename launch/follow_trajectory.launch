@@ -3,12 +3,12 @@
 	<include file="$(find localization-solution)/launch/localize_simulation.launch"/>
 	<arg name="lookahead" default="1.5"/>
 	<arg name="max_reacquire" default="3.0"/>
-	<arg name="speed" default="2"/>
+	<arg name="speed" default="1"/>
 
 
 	<arg name="odom_topic" default="/pf/pose/odom"/>
 	
-	<node pkg="lab6" type="lab6pp.py" name="Trajectory_follower" output="screen">
+	<node pkg="lab6" type="pure_pursuit.py" name="pure_pursuit" output="screen">
 		<param name="odom_topic" value="$(arg odom_topic)"/>		
 		<param name="trajectory_topic" value="/trajectory/current"/>
 		<param name="lookahead" value="$(arg lookahead)"/>
