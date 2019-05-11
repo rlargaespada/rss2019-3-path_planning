@@ -68,6 +68,7 @@ class PathPlanning:
         #Iterates from list_pos until we find a point that is outside our radius.
         min_pt = []
         min_idx = []
+	closest_point = None
         min_dist = float("inf")
         #Iterate from the last_pos to find the next point outside radius.  
         #We do this to avoid following points behind us.
@@ -95,10 +96,10 @@ class PathPlanning:
         self.POSE = np.array([data.pose.position.x, data.pose.position.y, 2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
         self.list_pos = self.get_closest_point()
         closest_point, closest_index, distance = self.get_target_point(self.path, self.POSE, self.list_pos, self.lookahead)
-        curvature = self.get_curvature(self.path[self.list_pos + 10, :])
+        curvature = self.get_curvature(closest_point)
         self.set_lookahead(curvature)
-        print(self.lookahead)
-        self.VELOCITY = self.lookahead
+        #print(self.lookahead)
+        #self.VELOCITY = self.lookahead
         self.PointCloud_path([self.path[self.list_pos, :], closest_point])
         self.path_cloud_pub.publish(self.cloud)
         x_new, y_new = closest_point[0] - self.POSE[0], closest_point[1] - self.POSE[1]
@@ -125,10 +126,10 @@ class PathPlanning:
         Output: curvature: a metric used to determine the next lookahead distance
         """
         # pose = np.array([0,0,0])
-        pose = self.POSE
+        pose = self.path[self.list_pos]
         # target = np.array(target_pt)
 
-        goal_angle = np.arctan2(pose[1]-target_pt[1], pose[0]-target_pt[0])-pose[2]
+        goal_angle = np.arctan2(pose[1]-target_pt[1], pose[0]-target_pt[0])-self.POSE[2]
 
         rad = self.lookahead/(2*np.sin(goal_angle))
 
@@ -139,11 +140,14 @@ class PathPlanning:
         chooses lookahead distance based on curvature of the path
         """
         if curv < 3:
-            self.lookahead = 1
-        elif curv < 5:
             self.lookahead = 2
+	    self.VELOCITY = 2
+        elif curv < 5:
+            self.lookahead = 2.5
+	    self.VELOCITY = 2.5
         else:
-            self.lookahead = 3
+            self.lookahead = 4
+	    self.VELOCITY = 3
 
     
 if __name__ == "__main__":
