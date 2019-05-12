@@ -2,7 +2,7 @@
 
 """
     RSS 2019 | Pure Pursuit controller for path tracking
-    Author: Kyle Morgenstein
+    Author: Alex Cuellar, Kayla Holman, Abbie Lee
 """
 
 import numpy as np
@@ -47,7 +47,7 @@ class PathPlanning:
         self.cloud = PointCloud()
         self.list_pos = 0
         self.lookahead = 1
-        self.base_link = .324
+        self.base_link = .25
         self.kp = rospy.get_param("/Trajectory_follower/kp")
         self.position = np.zeros(2)
 
@@ -74,6 +74,7 @@ class PathPlanning:
         min_idx = []
         closest_point = None
         min_dist = float("inf")
+	#print "lookahead later: ", l
         #Iterate from the last_pos to find the next point outside radius.  
         #We do this to avoid following points behind us.
         for idx in range(list_pos, list_pos + len(path)):
@@ -108,14 +109,14 @@ class PathPlanning:
         closest_pt = self.path[self.list_pos, :]
         closest_pt_tf = self.get_transformed_point(closest_pt)
         y_offset = closest_pt_tf[1]
-        print(closest_pt_tf)
+        # print "Prop Error:", y_offset
         # gets the target point for pure pursuit
         target_point, target_index, distance = self.get_target_point(self.path, self.POSE, self.list_pos, self.lookahead)
         
         curvature = self.get_curvature(target_point)
         self.set_lookahead(curvature)
 
-        self.PointCloud_path([closest_pt, self.path[self.list_pos + 10, :]])
+        self.PointCloud_path([closest_pt, target_point])
         self.path_cloud_pub.publish(self.cloud)
 
         x_new, y_new = target_point[0] - self.POSE[0], target_point[1] - self.POSE[1]
@@ -170,14 +171,16 @@ class PathPlanning:
         more curvature = shorter lookahead, less curvature = longer lookahead
         """
         if curv < 3:
-            self.lookahead = 1
-            self.VELOCITY = 2
+            self.lookahead = 1.5
+            self.VELOCITY = 2.3
         elif curv < 5:
-            self.lookahead = 2
-            self.VELOCITY = 2.5
+            self.lookahead = 3
+            self.VELOCITY = 3.
         else:
-            self.lookahead = 4
-            self.VELOCITY = 3
+            self.lookahead = 4.5
+            self.VELOCITY = 4.5
+
+	#print "Lookahead:", self.lookahead
 
     
 if __name__ == "__main__":
