@@ -49,11 +49,16 @@ class PathPlanning:
         self.lookahead = 1
         self.base_link = .25
         self.kp = rospy.get_param("/Trajectory_follower/kp")
+        self.kd = rospy.get_param("/Trajectory_follower/kd")
         self.position = np.zeros(2)
+        self.last_dist = 0
+        self.last_time = rospy.get_time()
+        self.num_deriv = 5 # number of samples for running average of derivative
+        self.derivs = []
 
     def pp_callback(self, path_points):
         '''
-        Pure pursuit on a list of close together points.  
+        Pure pursuit on a list of close together points.
         Will pursue the first point that falls outside the lookahead distance.
         Since points are close together this should translate into relatively smooth curve
         '''
@@ -67,7 +72,7 @@ class PathPlanning:
 
     def get_target_point(self, path, pose, list_pos, l):
         '''
-        Chooses the correct point for pure pursuit by iterating through points until the distance covered 
+        Chooses the correct point for pure pursuit by iterating through points until the distance covered
         is greater than the lookahead
         '''
         min_pt = []
@@ -75,7 +80,7 @@ class PathPlanning:
         closest_point = None
         min_dist = float("inf")
 	#print "lookahead later: ", l
-        #Iterate from the last_pos to find the next point outside radius.  
+        #Iterate from the last_pos to find the next point outside radius.
         #We do this to avoid following points behind us.
         for idx in range(list_pos, list_pos + len(path)):
             pt = path[idx%(len(path) - 1)]
@@ -97,22 +102,32 @@ class PathPlanning:
         dists = np.array(np.linalg.norm(distances, axis=1))
         closest_idx = np.argmin(dists)
         # find the index pf the point that is the smallest distance between current pose and the path
-        return closest_idx      
+        return closest_idx
 
     def pose_callback(self, data):
         '''
         Updates the current pose and uses pure pursuit to follow the path
         '''
         self.POSE = np.array([data.pose.position.x, data.pose.position.y, 2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
-        
+        curr_time = rospy.get_time()
+
         self.list_pos = self.get_closest_point() # index of the closest point
         closest_pt = self.path[self.list_pos, :]
         closest_pt_tf = self.get_transformed_point(closest_pt)
         y_offset = closest_pt_tf[1]
         # print "Prop Error:", y_offset
+
+        dt = curr_time - self.last_time
+        self.last_time = curr_time
+        new_d = (y_offset-self.last_dist)/dt
+        self.last_dist = y_offset
+
+        err_d = self.get_deriv(new_d)
+        print "Deriv Error:", err_d
+
         # gets the target point for pure pursuit
         target_point, target_index, distance = self.get_target_point(self.path, self.POSE, self.list_pos, self.lookahead)
-        
+
         curvature = self.get_curvature(target_point)
         self.set_lookahead(curvature)
 
@@ -122,9 +137,9 @@ class PathPlanning:
         x_new, y_new = target_point[0] - self.POSE[0], target_point[1] - self.POSE[1]
 
         eta = np.arctan2(y_new, x_new) - self.POSE[2] # angle between velocity vector and desired path [rad]
-        u = np.arctan(2*self.base_link*np.sin(eta)/distance) + y_offset*self.kp # sets input steering angle from controller [rad]
+        u = np.arctan(2*self.base_link*np.sin(eta)/distance) + y_offset*self.kp + err_d*self.kd # sets input steering angle from controller [rad]
 
-        self.create_ackermann_message(u)        
+        self.create_ackermann_message(u)
 
     def create_ackermann_message(self, steering_angle):
         '''
@@ -134,7 +149,7 @@ class PathPlanning:
         A.drive.speed = self.VELOCITY
         A.drive.steering_angle = steering_angle
         A.drive.steering_angle_velocity = 0 # determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
-        self.pub.publish(A) 
+        self.pub.publish(A)
 
     def get_transformed_point(self, point):
         '''
@@ -180,9 +195,21 @@ class PathPlanning:
             self.lookahead = 4.5
             self.VELOCITY = 4.5
 
-	#print "Lookahead:", self.lookahead
+    def get_deriv(self, new_d):
+        """
+        Calculates running average of the derivative of
+        the crosstrack error
+        """
+        if len(self.derivs) < self.num_deriv:
+            self.derivs.append(new_d)
 
-    
+        else:
+            self.derivs.append(new_d)
+            self.derivs.pop(0)
+
+        return np.average(self.derivs)
+
+
 if __name__ == "__main__":
     rospy.init_node("Trajectory_follower")
     path_planning = PathPlanning()
