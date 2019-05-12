@@ -48,6 +48,7 @@ class PathPlanning:
         self.list_pos = 0
         self.lookahead = 1
         self.base_link = .324
+        self.kp = rospy.get_param("/Trajectory_follower/kp")
         self.position = np.zeros(2)
 
     def pp_callback(self, path_points):
@@ -104,20 +105,23 @@ class PathPlanning:
         self.POSE = np.array([data.pose.position.x, data.pose.position.y, 2*np.arctan(data.pose.orientation.z/data.pose.orientation.w)]) #sets global position variable
         
         self.list_pos = self.get_closest_point() # index of the closest point
-        
+        closest_pt = self.path[self.list_pos, :]
+        closest_pt_tf = self.get_transformed_point(closest_pt)
+        y_offset = closest_pt_tf[1]
+        print(closest_pt_tf)
         # gets the target point for pure pursuit
         target_point, target_index, distance = self.get_target_point(self.path, self.POSE, self.list_pos, self.lookahead)
         
         curvature = self.get_curvature(target_point)
         self.set_lookahead(curvature)
 
-        self.PointCloud_path([self.path[self.list_pos, :], target_point])
+        self.PointCloud_path([closest_pt, self.path[self.list_pos + 10, :]])
         self.path_cloud_pub.publish(self.cloud)
 
         x_new, y_new = target_point[0] - self.POSE[0], target_point[1] - self.POSE[1]
 
         eta = np.arctan2(y_new, x_new) - self.POSE[2] # angle between velocity vector and desired path [rad]
-        u = np.arctan(2*self.base_link*np.sin(eta)/distance) # sets input steering angle from controller [rad]
+        u = np.arctan(2*self.base_link*np.sin(eta)/distance) + y_offset*self.kp # sets input steering angle from controller [rad]
 
         self.create_ackermann_message(u)        
 
@@ -131,6 +135,13 @@ class PathPlanning:
         A.drive.steering_angle_velocity = 0 # determines how quickly steering is adjuted, 0 is instantaneous [rad/s]
         self.pub.publish(A) 
 
+    def get_transformed_point(self, point):
+        '''
+        Input: point to be transormed into base_link, index of that point
+        Output: point in base_link
+        '''
+        tf_point = np.matmul(np.array([[np.cos(self.POSE[2]), -np.sin(self.POSE[2])], [np.sin(self.POSE[2]), np.cos(self.POSE[2])]]).T, np.array([point[0] - self.POSE[0], point[1] - self.POSE[1]]).T)
+        return tf_point
 
     def PointCloud_path(self, points):
         self.cloud.header.frame_id = "/map"
